@@ -15,7 +15,7 @@ import sampler.logutil as logutil
 __license__ = "LGPL"
 __author__ = "chrisfroe"
 
-logging.basicConfig(format='[sampler] [%(asctime)s] [%(levelname)s] %(message)s', level=logging.DEBUG, datefmt="%Y-%m-%d %H:%M:%S")
+logging.basicConfig(format='[sampler] [%(asctime)s] [%(levelname)s] %(message)s', level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
 log = logutil.StyleAdapter(logging.getLogger(__name__))
 
 

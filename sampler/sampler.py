@@ -49,6 +49,10 @@ class Sampler:
         else:
             os.makedirs(self._samples_dir, exist_ok=False)
 
+    @property
+    def samples_dir(self):
+        return self._samples_dir
+
     def sample(self):
         """Perform the function for all input_args"""
         # gather tasks
@@ -82,19 +86,20 @@ class Sampler:
             "args": processed_args
         }
         config_path = os.path.join(sample_dir, name + ".json")
-        json.dump(sample_data, config_path)
+        with open(config_path, 'w') as outfile:
+            json.dump(sample_data, outfile)
 
     def remove(self, name):
         """Remove sample with name"""
-        pass
+        raise RuntimeError("impl this")
 
     def remove_if(self, matcher):
         """Remove sample if the matcher evaluates to True. Matcher is function: sample -> bool"""
-        pass
+        raise RuntimeError("impl this")
 
     def result(self, name):
         """Return the result dict of sample with name"""
-        pass
+        raise RuntimeError("impl this")
 
     @classmethod
     def extract_if(cls, input_args=None, func=lambda x: x is None):

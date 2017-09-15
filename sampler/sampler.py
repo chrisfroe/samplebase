@@ -61,6 +61,7 @@ class Sampler:
         Scalar input args are directly written into the json config, arrays are written to a file,
         whose path will be saved in the config entry.
         """
+        # @todo how to serialize objects into these args as well
         sample_dir = os.path.join(self._samples_dir, name)
         os.makedirs(sample_dir, exist_ok=False)
         args_dir = os.path.join(sample_dir, "args")
@@ -68,8 +69,9 @@ class Sampler:
         arrays = self.extract_if(input_args, lambda x: isinstance(x, np.ndarray))
         scalars = self.extract_if(input_args, lambda x: not hasattr(x, "__len__"))
         strings = self.extract_if(input_args, lambda x: isinstance(x, str))
-        # @todo process arrays: save them to file and prepare a dict {name: {file: path}, name2: {file: path2}}
-        # @todo process strings and scalars: introduce 'value' layer in dict: {name: {value: val}, name2: {value: val2}}
+        arrays = self.insert_file_layer(arrays, sample_dir)
+        scalars = self.insert_value_layer(scalars)
+        strings = self.insert_value_layer(strings)
         processed_args = dict()
         processed_args.update(scalars)
         processed_args.update(strings)
@@ -77,8 +79,10 @@ class Sampler:
         sample_data = {
             "name": name,
             "done": False,
-            "args": input_args
+            "args": processed_args
         }
+        config_path = os.path.join(sample_dir, name + ".json")
+        json.dump(sample_data, config_path)
 
     def remove(self, name):
         """Remove sample with name"""
@@ -102,3 +106,26 @@ class Sampler:
             if func(value):
                 extract[key] = value
         return extract
+
+    @classmethod
+    def insert_value_layer(cls, input_args=None):
+        """Transform input_args from {key:value} to {key: {"value": value}} according to specification of a sample"""
+        if input_args is None:
+            input_args = dict()
+        processed = dict()
+        for key, value in input_args.items():
+            processed[key] = {"value": value}
+        return processed
+
+    @classmethod
+    def insert_file_layer(cls, input_args=None, sample_dir=os.getcwd()):
+        """Transform input_args from {key:value} to {key: {"file": arr/path/relative/to/sample/dir}}"""
+        if input_args is None:
+            input_args = dict()
+        processed = dict()
+        for key, value in input_args.items():
+            file_name = key + stamp()
+            file_path = os.path.join(sample_dir, "args", file_name)
+            np.save(file_path, value)
+            processed[key] = {"file": "args/" + file_name}
+        return processed

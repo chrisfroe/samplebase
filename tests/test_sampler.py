@@ -25,7 +25,7 @@ class TestSamplerFileSpecification(TestSamplerBase):
         super(TestSamplerFileSpecification, self).setUp()
 
         def f(x=None, y=None):
-            return x * y
+            return {"product": x * y}
 
         self.s = sampler.Sampler("foo", self.tmp_prefix, f)
 
@@ -60,7 +60,7 @@ class TestSamplerMethods(TestSamplerBase):
         super(TestSamplerMethods, self).setUp()
 
         def f(x=None, y=None):
-            return x * y
+            return {"product": x * y}
 
         self.s = sampler.Sampler("foo", self.tmp_prefix, f)
 
@@ -70,11 +70,12 @@ class TestSamplerMethods(TestSamplerBase):
     def test_ctor(self):
         self.assertTrue(os.path.exists(os.path.join(self.tmp_prefix, "foo")))
 
-    def test_sample(self):
-        # add args
-        # sample
-        # read results
-        raise RuntimeError("impl this")
+    def test_sample_one_point(self):
+        args = {"x": 2, "y": "ypsilon"}
+        self.s.add(args, "samplename")
+        self.s.sample()
+        result = self.s.result("samplename")
+        self.assertEqual(result["product"], "ypsilonypsilon")
 
     def test_remove(self):
         args = {"x": 2, "y": "ypsilon"}

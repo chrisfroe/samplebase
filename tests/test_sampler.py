@@ -10,13 +10,11 @@ import sampler
 class TestSamplerBase(unittest.TestCase):
     tmp_prefix = None
 
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp_prefix = tempfile.mkdtemp("foo-prefix")
+    def setUp(self):
+        self.tmp_prefix = tempfile.mkdtemp("foo-prefix")
 
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tmp_prefix)
+    def tearDown(self):
+        shutil.rmtree(self.tmp_prefix)
 
 
 class TestSamplerFileSpecification(TestSamplerBase):
@@ -24,10 +22,15 @@ class TestSamplerFileSpecification(TestSamplerBase):
     s = None
 
     def setUp(self):
+        super(TestSamplerFileSpecification, self).setUp()
+
         def f(x=None, y=None):
             return x * y
 
         self.s = sampler.Sampler("foo", self.tmp_prefix, f)
+
+    def tearDown(self):
+        super(TestSamplerFileSpecification, self).tearDown()
 
     def test_add_scalar(self):
         args = {"x": 2, "y": "ypsilon"}
@@ -54,10 +57,15 @@ class TestSamplerMethods(TestSamplerBase):
     s = None
 
     def setUp(self):
+        super(TestSamplerMethods, self).setUp()
+
         def f(x=None, y=None):
             return x * y
 
         self.s = sampler.Sampler("foo", self.tmp_prefix, f)
+
+    def tearDown(self):
+        super(TestSamplerMethods, self).tearDown()
 
     def test_ctor(self):
         self.assertTrue(os.path.exists(os.path.join(self.tmp_prefix, "foo")))

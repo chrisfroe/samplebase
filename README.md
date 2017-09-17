@@ -30,18 +30,15 @@ shall be reused there, or move it to another machine, without having to copy the
 An example for a `sample-label1.json` is
 ```json
 {
-  "name": "sample-label1", // a unique string
-  "done": true, // has been sampled?
+  "name": "sample-label1",
+  "done": true,
   "args": {
-    // an arg has either value or points to a file
     "length": {"value": 4},
-    "grid": {"file": "rel/path/to/args.npz"},
-    ...
+    "grid": {"file": "rel/path/to/args.npz"}
   },
   "result": {
     "time": {"value": 15.5},
-    "distribution": {"file": "the/distr.npy"},
-    ...
+    "distribution": {"file": "the/distr.npy"}
   }
 }
 ```
@@ -51,8 +48,7 @@ Another sample might have the following `sample-label2.json`. It contains no res
   "name": "sample-label2",
   "done": false,
   "args": {
-    "length": {"value": 1},
-    ...
+    "length": {"value": 1}
   }
 }
 ```

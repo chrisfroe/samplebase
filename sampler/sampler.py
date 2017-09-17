@@ -59,6 +59,9 @@ class Sampler:
     def samples(self):
         # @todo first: greedy gather a new list of Samples
         # @todo second: keep a cached version, check if samples_dir has been touched, if so update list
+        # maybe save the last update time and compare with the last change time of the dir,
+        # consider https://github.com/gorakhargosh/watchdog
+        # derive FileSystemEventHandler and implement on_modified() on_deleted() etc...
         return []
 
     def add(self, input_args, name=stamp()):

@@ -34,7 +34,7 @@ An example for a `sample-label1.json` is
   "done": true,
   "args": {
     "length": {"value": 4},
-    "grid": {"file": "rel/path/to/args.npz"}
+    "grid": {"file": "rel/path/to/args.npy"}
   },
   "result": {
     "time": {"value": 15.5},

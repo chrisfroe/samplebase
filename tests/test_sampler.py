@@ -3,6 +3,7 @@ import unittest
 import tempfile
 import shutil
 import json
+import numpy as np
 
 import sampler
 
@@ -45,7 +46,21 @@ class TestSamplerFileSpecification(TestSamplerBase):
         self.assertEqual(loaded["args"]["y"]["value"], "ypsilon")
 
     def test_add_array(self):
-        raise RuntimeError("impl this")
+        args = {"x": 2, "y": np.array([2., 3.])}
+        self.s.add(args, "samplename")
+        with open(os.path.join(self.s.samples_dir, "samplename", "samplename.json")) as json_file:
+            loaded = json.load(json_file)
+        self.assertEqual(loaded["name"], "samplename")
+        self.assertEqual(loaded["done"], False)
+        self.assertTrue("args" in loaded)
+        self.assertTrue("y" in loaded["args"])
+        self.assertTrue("file" in loaded["args"]["y"])
+        relative_path = loaded["args"]["y"]["file"]
+        self.assertTrue(isinstance(relative_path, str))
+        self.assertTrue("args/" in relative_path)
+        file_path = os.path.join(self.s.samples_dir, "samplename", os.path.normpath(relative_path))
+        arr = np.load(file_path)
+        np.testing.assert_array_equal(arr, np.array([2., 3.]))
 
 
 class TestSamplerMethods(TestSamplerBase):
@@ -70,12 +85,19 @@ class TestSamplerMethods(TestSamplerBase):
     def test_ctor(self):
         self.assertTrue(os.path.exists(os.path.join(self.tmp_prefix, "foo")))
 
-    def test_sample_one_point(self):
+    def test_sample_one_point_scalar(self):
         args = {"x": 2, "y": "ypsilon"}
         self.s.add(args, "samplename")
         self.s.sample()
         result = self.s.result("samplename")
         self.assertEqual(result["product"], "ypsilonypsilon")
+
+    def test_sample_one_point_array(self):
+        args = {"x": 2, "y": np.array([2., 3.])}
+        self.s.add(args, "samplename")
+        self.s.sample()
+        result = self.s.result("samplename")
+        np.testing.assert_array_equal(result["product"], np.array([4., 6.]))
 
     def test_remove(self):
         args = {"x": 2, "y": "ypsilon"}
@@ -86,13 +108,13 @@ class TestSamplerMethods(TestSamplerBase):
     def test_remove_if_true(self):
         args = {"x": 2, "y": "ypsilon"}
         self.s.add(args, "samplename")
-        self.s.remove_if(lambda x: x["args"]["x"] == "samplename")
+        self.s.remove_if(lambda x: x["args"]["x"] == 2)
         self.assertTrue(not os.path.exists(os.path.join(self.s.samples_dir, "samplename")))
 
     def test_remove_if_false(self):
         args = {"x": 2, "y": "ypsilon"}
         self.s.add(args, "samplename")
-        self.s.remove_if(lambda x: x["args"]["x"] == "Anothername")
+        self.s.remove_if(lambda x: x["args"]["x"] == 3)
         self.assertTrue(os.path.exists(os.path.join(self.s.samples_dir, "samplename")))
 
 

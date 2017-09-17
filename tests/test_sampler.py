@@ -88,14 +88,14 @@ class TestSamplerMethods(TestSamplerBase):
     def test_sample_one_point_scalar(self):
         args = {"x": 2, "y": "ypsilon"}
         self.s.add(args, "samplename")
-        self.s.sample()
+        self.s.run()
         result = self.s.result("samplename")
         self.assertEqual(result["product"], "ypsilonypsilon")
 
     def test_sample_one_point_array(self):
         args = {"x": 2, "y": np.array([2., 3.])}
         self.s.add(args, "samplename")
-        self.s.sample()
+        self.s.run()
         result = self.s.result("samplename")
         np.testing.assert_array_equal(result["product"], np.array([4., 6.]))
 
@@ -106,7 +106,7 @@ class TestSamplerMethods(TestSamplerBase):
         self.s.add(args, "samplename2")
         args = {"x": np.array([3., 3.]), "y": np.array([2., 2.])}
         self.s.add(args, "samplename3")
-        self.s.sample(n_jobs=3)
+        self.s.run(n_jobs=3)
         result1 = self.s.result("samplename1")
         np.testing.assert_array_equal(result1["product"], np.array([4., 6.]))
         result2 = self.s.result("samplename2")
@@ -132,6 +132,8 @@ class TestSamplerMethods(TestSamplerBase):
         self.s.remove_if(lambda x: x["args"]["x"] == 3)
         self.assertTrue(os.path.exists(os.path.join(self.s.samples_dir, "samplename")))
 
+    def test_access_samples(self):
+        raise RuntimeError("impl test_access_samples")
 
 if __name__ == '__main__':
     unittest.main()

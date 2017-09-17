@@ -55,6 +55,12 @@ class Sampler:
     def samples_dir(self):
         return self._samples_dir
 
+    @property
+    def samples(self):
+        # @todo first: greedy gather a new list of Samples
+        # @todo second: keep a cached version, check if samples_dir has been touched, if so update list
+        return []
+
     def add(self, input_args, name=stamp()):
         """Add a point in argument space to be sampled for results.
 
@@ -111,7 +117,7 @@ class Sampler:
                         loaded = json.load(sample_file)
                     return Sampler._pure_data(loaded, sample_dir, "result")
 
-    def sample(self, n_jobs=2):
+    def run(self, n_jobs=2):
         """Perform the function for all input_args
 
         Gather tasks, then perform by spawning multiple threads.
@@ -232,3 +238,60 @@ class Sampler:
         processed_args.update(scalars)
         processed_args.update(strings)
         return processed_args
+
+
+class CachedArray:
+    """Array which resides on disk, and is only loaded when explicitly obtained, i.e. __get__"""
+    def __init__(self, file_path):
+        self._file_path = file_path
+        self._cached_value = None
+        self._first_get = True
+
+    def __get__(self, instance, owner):
+        if self._first_get:
+            self._first_get = False
+            self._update_cached_value()
+        elif self._changed():
+            self._update_cached_value()
+        return self._cached_value
+
+    def _changed(self):
+        return False
+
+    def _update_cached_value(self):
+        self._cached_value = np.load(self._file_path)
+        pass
+
+
+class Sample:
+    """Provide read only access to samples on disk. Data is only read from disk if it changed.
+
+    @todo hold a lock on json file or whole sample_dir, that protects against files being moved?
+    @todo Cache json file, reload it if it has changed. How to do that?
+    """
+
+    def __init__(self, sample_dir, sample_name):
+        self.cached_pure_sample = None
+
+    @property
+    def args(self):
+        """Return copy of args"""
+        if self.changed():
+            self.update_cache()
+        return self.cached_pure_sample["args"]
+
+    @property
+    def result(self):
+        """Return copy of result"""
+        if self.changed():
+            self.update_cache()
+        return self.cached_pure_sample["args"]
+
+    def changed(self):
+        """Check if the json file changed"""
+        return False
+
+    def update_cache(self):
+        """Read json file, convert to pure, write to cached_pure_sample. The pure cache directly holds
+        scalar data. For arrays it holds another cached object, which is only read when needed"""
+        pass

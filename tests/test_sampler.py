@@ -99,6 +99,21 @@ class TestSamplerMethods(TestSamplerBase):
         result = self.s.result("samplename")
         np.testing.assert_array_equal(result["product"], np.array([4., 6.]))
 
+    def test_sample_three_points_mixed(self):
+        args = {"x": 2, "y": np.array([2., 3.])}
+        self.s.add(args, "samplename1")
+        args = {"x": 2, "y": 3}
+        self.s.add(args, "samplename2")
+        args = {"x": np.array([3., 3.]), "y": np.array([2., 2.])}
+        self.s.add(args, "samplename3")
+        self.s.sample(n_jobs=3)
+        result1 = self.s.result("samplename1")
+        np.testing.assert_array_equal(result1["product"], np.array([4., 6.]))
+        result2 = self.s.result("samplename2")
+        self.assertEqual(result2["product"], 6)
+        result3 = self.s.result("samplename3")
+        np.testing.assert_array_equal(result3["product"], np.array([6., 6.]))
+
     def test_remove(self):
         args = {"x": 2, "y": "ypsilon"}
         self.s.add(args, "samplename")

@@ -42,6 +42,11 @@ class Sampler:
     def __init__(self, name, prefix, func, resample=False):
         self._func = func
         self._samples_dir = os.path.join(prefix, name)
+        # @todo have a watch on _samples_dir that sets _samples_dir_changed = True
+        # @todo ONLY when a sample_dir is created or deleted. Sample will take care of modifications in its own dir.
+        self._samples = []
+        self._first_get = True
+        self._samples_list_outdated = False
         if os.path.exists(self._samples_dir):
             log.info("samples_dir {} exists", self._samples_dir)
             if resample:
@@ -55,22 +60,15 @@ class Sampler:
     def samples_dir(self):
         return self._samples_dir
 
-    @property
-    def samples(self):
-        # @todo first: greedy gather a new list of Samples
-        # @todo second: keep a cached version, check if samples_dir has been touched, if so update list
-        # maybe save the last update time and compare with the last change time of the dir,
-        # consider https://github.com/gorakhargosh/watchdog
-        # derive FileSystemEventHandler and implement on_modified() on_deleted() etc...
-        return []
-
-    def add(self, input_args, name=stamp()):
+    def add(self, input_args, name=None):
         """Add a point in argument space to be sampled for results.
 
         A new sub_dir in samples_dir is created
         Scalar input args are directly written into the json config, arrays are written to a file,
         whose path will be saved in the config entry.
         """
+        if name is None:
+            name = stamp()
         # @todo how to serialize objects into these args as well
         sample_dir = os.path.join(self._samples_dir, name)
         os.makedirs(sample_dir, exist_ok=False)
@@ -203,26 +201,26 @@ class Sampler:
     @staticmethod
     def _pure_sample(loaded_sample, sample_dir):
         """Transform saved sample according to specification to pure sample again"""
-        _pure_sample = dict()
-        _pure_sample["done"] = loaded_sample["done"]
-        _pure_sample["name"] = loaded_sample["name"]
-        _pure_sample["args"] = Sampler._pure_data(loaded_sample, sample_dir, target="args")
-        _pure_sample["result"] = Sampler._pure_data(loaded_sample, sample_dir, target="result")
-        return _pure_sample
+        pure_sample = dict()
+        pure_sample["done"] = loaded_sample["done"]
+        pure_sample["name"] = loaded_sample["name"]
+        pure_sample["args"] = Sampler._pure_data(loaded_sample, sample_dir, target="args")
+        pure_sample["result"] = Sampler._pure_data(loaded_sample, sample_dir, target="result")
+        return pure_sample
 
     @staticmethod
     def _pure_data(sample, sample_dir, target="args"):
         """Transform saved data according to specification to pure data again, i.e. (key, value) pairs"""
-        _pure_data = dict()
+        pure_data = dict()
         if target in sample:
             loaded_data = sample[target]
             for key, value in loaded_data.items():
                 if "value" in value:
-                    _pure_data[key] = value["value"]
+                    pure_data[key] = value["value"]
                 elif "file" in value:
                     file_path = os.path.join(sample_dir, os.path.normpath(value["file"]))
-                    _pure_data[key] = np.load(file_path)
-        return _pure_data
+                    pure_data[key] = np.load(file_path)
+        return pure_data
 
     @staticmethod
     def _processed_data(pure_data, sample_dir, file_target="args"):
@@ -236,11 +234,29 @@ class Sampler:
         arrays = Sampler._insert_file_layer(arrays, sample_dir, file_target)
         scalars = Sampler._insert_value_layer(scalars)
         strings = Sampler._insert_value_layer(strings)
-        processed_args = dict()
-        processed_args.update(arrays)
-        processed_args.update(scalars)
-        processed_args.update(strings)
-        return processed_args
+        processed_data = dict()
+        processed_data.update(arrays)
+        processed_data.update(scalars)
+        processed_data.update(strings)
+        return processed_data
+
+    @property
+    def samples(self):
+        # @todo first: greedy gather a new list of Samples
+        # @todo second: keep a cached version, check if samples_dir has been touched, if so update list
+        # maybe save the last update time and compare with the last change time of the dir,
+        # consider https://github.com/gorakhargosh/watchdog
+        # derive FileSystemEventHandler and implement on_modified() on_deleted() etc...
+        if self._first_get:
+            self._update_samples_list()
+        elif self._samples_list_outdated:
+            self._update_samples_list()
+        return self._samples
+
+    def _update_samples_list(self):
+        self._samples_list_outdated = False
+        # @todo os.scandir and fill samples list with new Sample objects
+        self._samples = []
 
 
 class CachedArray:
@@ -266,15 +282,12 @@ class CachedArray:
         pass
 
 
-class Sample:
-    """Provide read only access to samples on disk. Data is only read from disk if it changed.
-
-    @todo hold a lock on json file or whole sample_dir, that protects against files being moved?
-    @todo Cache json file, reload it if it has changed. How to do that?
-    """
+class CachedSample:
+    """Provide read only access to samples on disk. Data is only read from disk if it changed or it is requested"""
 
     def __init__(self, sample_dir, sample_name):
         self.cached_pure_sample = None
+        # @todo have a watch on sample_dir for any modifications
 
     @property
     def args(self):

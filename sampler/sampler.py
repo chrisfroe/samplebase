@@ -32,7 +32,7 @@ def stamp(random_digits=8):
     _stamp = timestamp + "_" + randomstamp
     return _stamp
 
-
+# @todo move the reading/writing responsibility to the CachedSample/SampleProxy class
 class Sampler:
     """
     Sampler object is rather stateless, the state is given by what samples exist on the filesystem.
@@ -69,7 +69,6 @@ class Sampler:
         """
         if name is None:
             name = stamp()
-        # @todo how to serialize objects into these args as well
         sample_dir = os.path.join(self._samples_dir, name)
         os.makedirs(sample_dir, exist_ok=False)
         args_dir = os.path.join(sample_dir, "args")
@@ -159,6 +158,7 @@ class Sampler:
         if "result" in sample:
             sample.pop("result")
         sample["result"] = processed_result
+        sample["done"] = True
         with open(sample_file_path, "w") as sample_file:
             json.dump(sample, sample_file)
 
@@ -244,7 +244,6 @@ class Sampler:
     def samples(self):
         # @todo first: greedy gather a new list of Samples
         # @todo second: keep a cached version, check if samples_dir has been touched, if so update list
-        # maybe save the last update time and compare with the last change time of the dir,
         # consider https://github.com/gorakhargosh/watchdog
         # derive FileSystemEventHandler and implement on_modified() on_deleted() etc...
         if self._first_get:
@@ -255,8 +254,13 @@ class Sampler:
 
     def _update_samples_list(self):
         self._samples_list_outdated = False
-        # @todo os.scandir and fill samples list with new Sample objects
         self._samples = []
+        with os.scandir(self._samples_dir) as it:
+            for sample in it:
+                if sample.is_dir():
+                    sample_dir = os.path.join(self._samples_dir, sample.name)
+                    self._samples.append(CachedSample(sample_dir, sample.name))
+
 
 
 class CachedArray:
@@ -286,28 +290,56 @@ class CachedSample:
     """Provide read only access to samples on disk. Data is only read from disk if it changed or it is requested"""
 
     def __init__(self, sample_dir, sample_name):
-        self.cached_pure_sample = None
+        self._cached_pure_sample = dict()
+        self._sample_dir = sample_dir
+        self._sample_name = sample_name
+        self._sample_file_path = os.path.join(sample_dir, sample_name + ".json")
+        self._update_cache()
         # @todo have a watch on sample_dir for any modifications
 
     @property
     def args(self):
         """Return copy of args"""
-        if self.changed():
-            self.update_cache()
-        return self.cached_pure_sample["args"]
+        if self._outdated():
+            self._update_cache()
+        return self._cached_pure_sample["args"]
 
     @property
     def result(self):
         """Return copy of result"""
-        if self.changed():
-            self.update_cache()
-        return self.cached_pure_sample["args"]
+        if self._outdated():
+            self._update_cache()
+        return self._cached_pure_sample["result"]
 
-    def changed(self):
+    @property
+    def name(self):
+        if self._outdated():
+            self._update_cache()
+        return self._cached_pure_sample["name"]
+
+    @property
+    def done(self):
+        if self._outdated():
+            self._update_cache()
+        return self._cached_pure_sample["done"]
+
+    def __repr__(self):
+        s = "CachedSample("
+        s += str(self._cached_pure_sample)
+        s += ")"
+        return s
+
+    def _outdated(self):
         """Check if the json file changed"""
+        # @todo watch on sample_dir
         return False
 
-    def update_cache(self):
+    def _update_cache(self):
         """Read json file, convert to pure, write to cached_pure_sample. The pure cache directly holds
         scalar data. For arrays it holds another cached object, which is only read when needed"""
-        pass
+        with open(self._sample_file_path, "r") as sample_file:
+            sample = json.load(sample_file)
+        self._cached_pure_sample["args"] = Sampler._pure_data(sample, self._sample_dir, target="args")
+        self._cached_pure_sample["result"] = Sampler._pure_data(sample, self._sample_dir, target="result")
+        self._cached_pure_sample["name"] = sample["name"]
+        self._cached_pure_sample["done"] = sample["done"]

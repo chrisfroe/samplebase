@@ -133,7 +133,22 @@ class TestSamplerMethods(TestSamplerBase):
         self.assertTrue(os.path.exists(os.path.join(self.s.samples_dir, "samplename")))
 
     def test_access_samples(self):
-        raise RuntimeError("impl test_access_samples")
+        args = {"x": 2, "y": np.array([2., 3.])}
+        self.s.add(args, "samplename1")
+        args = {"x": 2, "y": 3}
+        self.s.add(args, "samplename2")
+        self.s.run(n_jobs=3)
+        args = {"x": np.array([3., 3.]), "y": np.array([2., 2.])}
+        self.s.add(args, "samplename3")
+        for sample in self.s.samples:
+            print(sample)
+            if sample.name == "samplename1":
+                np.testing.assert_array_equal(sample.result["product"], np.array([4., 6.]))
+            if sample.name == "samplename2":
+                self.assertEqual(sample.result["product"], 6)
+            if sample.name == "samplename3":
+                self.assertEqual(sample.result, {})
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -140,8 +140,8 @@ class TestSamplerMethods(TestSamplerBase):
         self.s.run(n_jobs=3)
         args = {"x": np.array([3., 3.]), "y": np.array([2., 2.])}
         self.s.add(args, "samplename3")
+        self.assertEqual(len(self.s.samples), 3)
         for sample in self.s.samples:
-            print(sample)
             if sample.name == "samplename1":
                 np.testing.assert_array_equal(sample.result["product"], np.array([4., 6.]))
             if sample.name == "samplename2":

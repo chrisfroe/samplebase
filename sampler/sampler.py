@@ -32,6 +32,34 @@ def stamp(random_digits=8):
     _stamp = timestamp + "_" + randomstamp
     return _stamp
 
+
+class Sample(object):
+    # assume that the file will only be manipulated by this object, thus no watching required
+    def __init__(self, prefix, name):
+        self._data = None
+        self._prefix = prefix
+        self._name = name
+        self._data_path = os.path.join(prefix, name + ".json")
+        if not os.path.exists(prefix):
+            os.makedirs(self._prefix, exist_ok=False)
+        if not os.path.exists(self._data_path):
+            self._data = {
+                "name": name,
+                "done": False,
+            }
+            self.write()
+
+    def write(self):
+        # dump data into file
+        # i.e. also saving arrays to subdirs
+        pass
+
+    def read(self):
+        # read file into data
+        # i.e. also loading arrays from subdirs
+        pass
+
+
 # @todo move the reading/writing responsibility to the CachedSample/SampleProxy class
 class Sampler:
     """

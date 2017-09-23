@@ -35,29 +35,114 @@ def stamp(random_digits=8):
 
 class Sample(object):
     # assume that the file will only be manipulated by this object, thus no watching required
-    def __init__(self, prefix, name):
+    def __init__(self, prefix, name, init_data=None):
         self._data = None
         self._prefix = prefix
         self._name = name
         self._data_path = os.path.join(prefix, name + ".json")
         if not os.path.exists(prefix):
             os.makedirs(self._prefix, exist_ok=False)
+            args_dir = os.path.join(self._prefix, "args")
+            result_dir = os.path.join(self._prefix, "result")
+            os.makedirs(args_dir, exist_ok=False)
+            os.makedirs(result_dir, exist_ok=False)
+
         if not os.path.exists(self._data_path):
-            self._data = {
-                "name": name,
-                "done": False,
-            }
+            if init_data is not None:
+                self._data = init_data
+            else:
+                self._data = {
+                    "name": name,
+                    "done": False,
+                }
             self.write()
 
     def write(self):
         # dump data into file
         # i.e. also saving arrays to subdirs
-        pass
+        data = Sample._processed_data(self._data, self._prefix)
+
+        with open(self._data_path, "w") as outfile:
+            json.dump(data, outfile)
 
     def read(self):
         # read file into data
         # i.e. also loading arrays from subdirs
+        # later: instead of loadings arrays place CachedArrays at the corresponding locations
         pass
+
+    @staticmethod
+    def _processed_data(pure_data, save_prefix):
+        """
+        Transform pure_data (key, value) pairs according to specification.
+        This involves saving arrays to save_prefix.
+        """
+        arrays = Sample._extract_if(pure_data, lambda x: isinstance(x, np.ndarray))
+        scalars = Sample._extract_if(pure_data, lambda x: not hasattr(x, "__len__"))
+        strings = Sample._extract_if(pure_data, lambda x: isinstance(x, str))
+        arrays = Sample._insert_file_layer(arrays, save_prefix)
+        scalars = Sample._insert_value_layer(scalars)
+        strings = Sample._insert_value_layer(strings)
+        processed_data = dict()
+        processed_data.update(arrays)
+        processed_data.update(scalars)
+        processed_data.update(strings)
+        return processed_data
+
+    @staticmethod
+    def _pure_data(data, save_prefix):
+        """Transform saved data according to specification to pure data again, i.e. (key, value) pairs"""
+        pure_data = dict()
+        for key, value in loaded_data.items():
+            if "value" in value:
+                pure_data[key] = value["value"]
+            elif "file" in value:
+                file_path = os.path.join(sample_dir, os.path.normpath(value["file"]))
+                pure_data[key] = np.load(file_path)
+        return pure_data
+
+    @staticmethod
+    def _extract_if(data_dict=None, func=lambda x: x is None):
+        """From data_dict extract elements, whose values positively evaluate func"""
+        if data_dict is None:
+            data_dict = dict()
+        extract = dict()
+        for key, value in data_dict.items():
+            if func(value):
+                extract[key] = value
+        return extract
+
+    @staticmethod
+    def _insert_file_layer(data, save_prefix):
+        """Transform data from {key:value} to {key: {"file": filename relative to save_prefix}}"""
+        processed = dict()
+        for key, value in data.items():
+            file_name = key + stamp() + ".npy"
+            file_path = os.path.join(save_prefix, file_name)
+            np.save(file_path, value)
+            processed[key] = {"file": file_name}
+        return processed
+
+    @staticmethod
+    def _insert_value_layer(data_dict=None):
+        """Transform data_dict from {key:value} to {key: {"value": value}} according to specification of a sample"""
+        if data_dict is None:
+            data_dict = dict()
+        processed = dict()
+        for key, value in data_dict.items():
+            processed[key] = {"value": value}
+        return processed
+
+    @staticmethod
+    def _pure_sample(loaded_sample, sample_dir):
+        """Transform saved sample according to specification to pure sample again"""
+        pure_sample = dict()
+        pure_sample["done"] = loaded_sample["done"]
+        pure_sample["name"] = loaded_sample["name"]
+        pure_sample["args"] = Sample._pure_data(loaded_sample, sample_dir, target="args")
+        pure_sample["result"] = Sample._pure_data(loaded_sample, sample_dir, target="result")
+        return pure_sample
+
 
 
 # @todo move the reading/writing responsibility to the CachedSample/SampleProxy class
@@ -89,28 +174,17 @@ class Sampler:
         return self._samples_dir
 
     def add(self, input_args, name=None):
-        """Add a point in argument space to be sampled for results.
-
-        A new sub_dir in samples_dir is created
-        Scalar input args are directly written into the json config, arrays are written to a file,
-        whose path will be saved in the config entry.
-        """
+        """Add a point in argument space to be sampled for results"""
         if name is None:
             name = stamp()
         sample_dir = os.path.join(self._samples_dir, name)
-        os.makedirs(sample_dir, exist_ok=False)
-        args_dir = os.path.join(sample_dir, "args")
-        os.makedirs(args_dir, exist_ok=False)
-        result_dir = os.path.join(sample_dir, "result")
-        os.makedirs(result_dir, exist_ok=False)
         sample_data = {
             "name": name,
             "done": False,
             "args": Sampler._processed_data(input_args, sample_dir, file_target="args")
         }
-        sample_file_path = os.path.join(sample_dir, name + ".json")
-        with open(sample_file_path, "w") as outfile:
-            json.dump(sample_data, outfile)
+        self._samples.append(Sample(sample_dir, name, init_data=sample_data))
+
 
     def remove(self, name):
         """Remove sample with name"""
@@ -189,84 +263,6 @@ class Sampler:
         sample["done"] = True
         with open(sample_file_path, "w") as sample_file:
             json.dump(sample, sample_file)
-
-    @staticmethod
-    def _extract_if(data_dict=None, func=lambda x: x is None):
-        """From data_dict extract elements, whose values positively evaluate func"""
-        if data_dict is None:
-            data_dict = dict()
-        extract = dict()
-        for key, value in data_dict.items():
-            if func(value):
-                extract[key] = value
-        return extract
-
-    @staticmethod
-    def _insert_value_layer(data_dict=None):
-        """Transform data_dict from {key:value} to {key: {"value": value}} according to specification of a sample"""
-        if data_dict is None:
-            data_dict = dict()
-        processed = dict()
-        for key, value in data_dict.items():
-            processed[key] = {"value": value}
-        return processed
-
-    @staticmethod
-    def _insert_file_layer(data_dict=None, sample_dir=os.getcwd(), file_target="args"):
-        """Transform data_dict from {key:value} to {key: {"file": arr/path/relative/to/sample/dir}}
-
-        Saves all values to .npy files"""
-        if data_dict is None:
-            data_dict = dict()
-        processed = dict()
-        for key, value in data_dict.items():
-            file_name = key + stamp() + ".npy"
-            file_path = os.path.join(sample_dir, file_target, file_name)
-            np.save(file_path, value)
-            processed[key] = {"file": file_target + "/" + file_name}
-        return processed
-
-    @staticmethod
-    def _pure_sample(loaded_sample, sample_dir):
-        """Transform saved sample according to specification to pure sample again"""
-        pure_sample = dict()
-        pure_sample["done"] = loaded_sample["done"]
-        pure_sample["name"] = loaded_sample["name"]
-        pure_sample["args"] = Sampler._pure_data(loaded_sample, sample_dir, target="args")
-        pure_sample["result"] = Sampler._pure_data(loaded_sample, sample_dir, target="result")
-        return pure_sample
-
-    @staticmethod
-    def _pure_data(sample, sample_dir, target="args"):
-        """Transform saved data according to specification to pure data again, i.e. (key, value) pairs"""
-        pure_data = dict()
-        if target in sample:
-            loaded_data = sample[target]
-            for key, value in loaded_data.items():
-                if "value" in value:
-                    pure_data[key] = value["value"]
-                elif "file" in value:
-                    file_path = os.path.join(sample_dir, os.path.normpath(value["file"]))
-                    pure_data[key] = np.load(file_path)
-        return pure_data
-
-    @staticmethod
-    def _processed_data(pure_data, sample_dir, file_target="args"):
-        """
-        Transform pure_data (key, value) pairs according to specification.
-        This involves saving arrays to sample_dir.
-        """
-        arrays = Sampler._extract_if(pure_data, lambda x: isinstance(x, np.ndarray))
-        scalars = Sampler._extract_if(pure_data, lambda x: not hasattr(x, "__len__"))
-        strings = Sampler._extract_if(pure_data, lambda x: isinstance(x, str))
-        arrays = Sampler._insert_file_layer(arrays, sample_dir, file_target)
-        scalars = Sampler._insert_value_layer(scalars)
-        strings = Sampler._insert_value_layer(strings)
-        processed_data = dict()
-        processed_data.update(arrays)
-        processed_data.update(scalars)
-        processed_data.update(strings)
-        return processed_data
 
     @property
     def samples(self):

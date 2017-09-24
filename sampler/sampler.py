@@ -38,8 +38,8 @@ def stamp(random_digits=8):
 class Sample(object):
     # assume that the file will only be manipulated by this object, thus no watching required
     def __init__(self, parent_prefix, name=None, args=None):
-        if not ((name is not None) ^ (args is not None)):
-            raise RuntimeError("Either name xor initial arguments must be given.")
+        if not ((name is not None) or (args is not None)):
+            raise RuntimeError("Either name or initial arguments (or both) must be given.")
         if args is None:
             args = dict()
         if name is None:
@@ -81,12 +81,13 @@ class Sample(object):
             return self["result"]
         return {}
 
-    @property.setter
+    @result.setter
     def result(self, value):
         if "result" in self._data:
             self._data.pop("result")
         self._data["result"] = value
         self._data["done"] = True
+        self._write()
 
     def __getitem__(self, item):
         if self._outdated:  # currently the only way to outdate the data is by another process
@@ -162,7 +163,7 @@ def list_of_samples(samples_dir=os.getcwd()):
     return samples
 
 
-def run(func, samples, n_jobs=2):
+def run(func, samples, n_jobs=1):
     """Gather tasks, then perform in parallel"""
 
     def task(sample):
@@ -173,3 +174,6 @@ def run(func, samples, n_jobs=2):
     with pm.Pool(processes=n_jobs) as p:
         for _, _ in enumerate(p.imap_unordered(task, todo_samples, 1)):
             pass
+
+    for s in samples:
+        s._outdated = True

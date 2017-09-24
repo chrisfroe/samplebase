@@ -50,10 +50,6 @@ class Sample(object):
         self._data_path = os.path.join(self._prefix, name + ".json")
         if not os.path.exists(self._prefix):
             os.makedirs(self._prefix, exist_ok=False)
-            args_dir = os.path.join(self._prefix, "args")
-            result_dir = os.path.join(self._prefix, "result")
-            os.makedirs(args_dir, exist_ok=False)
-            os.makedirs(result_dir, exist_ok=False)
 
         if not os.path.exists(self._data_path):
             self._data = {
@@ -69,6 +65,8 @@ class Sample(object):
 
     @property
     def done(self):
+        if self._outdated:
+            self._read()
         return self["done"]
 
     @property
@@ -77,14 +75,14 @@ class Sample(object):
 
     @property
     def result(self):
+        if self._outdated:
+            self._read()
         if "result" in self._data:
             return self["result"]
         return {}
 
     @result.setter
     def result(self, value):
-        if "result" in self._data:
-            self._data.pop("result")
         self._data["result"] = value
         self._data["done"] = True
         self._write()
@@ -164,7 +162,7 @@ def list_of_samples(samples_dir=os.getcwd()):
 
 
 def run(func, samples, n_jobs=1):
-    """Gather tasks, then perform in parallel"""
+    """Process samples in parallel"""
 
     def task(sample):
         sample.result = func(**sample.args)
@@ -175,5 +173,5 @@ def run(func, samples, n_jobs=1):
         for _, _ in enumerate(p.imap_unordered(task, todo_samples, 1)):
             pass
 
-    for s in samples:
+    for s in todo_samples:
         s._outdated = True

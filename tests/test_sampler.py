@@ -1,8 +1,6 @@
-import os
 import unittest
 import tempfile
 import shutil
-import json
 import numpy as np
 
 import sampler

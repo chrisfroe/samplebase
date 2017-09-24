@@ -7,10 +7,10 @@ import time
 import random
 import string
 import json
+import jsonpickle
 import numpy as np
 import logging
 import pathos.multiprocessing as pm
-import shutil
 
 import sampler.logutil as logutil
 
@@ -33,14 +33,22 @@ def stamp(random_digits=8):
     return _stamp
 
 
+# @todo to guarantee safe parallel access, set up a mini server, that holds the list of samples
+
 class Sample(object):
     # assume that the file will only be manipulated by this object, thus no watching required
-    def __init__(self, prefix, name, init_data=None):
+    def __init__(self, parent_prefix, name=None, args=None):
+        if not ((name is not None) ^ (args is not None)):
+            raise RuntimeError("Either name xor initial arguments must be given.")
+        if args is None:
+            args = dict()
+        if name is None:
+            name = stamp()
         self._data = None
-        self._prefix = prefix
-        self._name = name
-        self._data_path = os.path.join(prefix, name + ".json")
-        if not os.path.exists(prefix):
+        self._outdated = True
+        self._prefix = os.path.join(parent_prefix, name)
+        self._data_path = os.path.join(self._prefix, name + ".json")
+        if not os.path.exists(self._prefix):
             os.makedirs(self._prefix, exist_ok=False)
             args_dir = os.path.join(self._prefix, "args")
             result_dir = os.path.join(self._prefix, "result")
@@ -48,322 +56,120 @@ class Sample(object):
             os.makedirs(result_dir, exist_ok=False)
 
         if not os.path.exists(self._data_path):
-            if init_data is not None:
-                self._data = init_data
-            else:
-                self._data = {
-                    "name": name,
-                    "done": False,
-                }
-            self.write()
-
-    def write(self):
-        # dump data into file
-        # i.e. also saving arrays to subdirs
-        data = Sample._processed_data(self._data, self._prefix)
-
-        with open(self._data_path, "w") as outfile:
-            json.dump(data, outfile)
-
-    def read(self):
-        # read file into data
-        # i.e. also loading arrays from subdirs
-        # later: instead of loadings arrays place CachedArrays at the corresponding locations
-        pass
-
-    @staticmethod
-    def _processed_data(pure_data, save_prefix):
-        """
-        Transform pure_data (key, value) pairs according to specification.
-        This involves saving arrays to save_prefix.
-        """
-        arrays = Sample._extract_if(pure_data, lambda x: isinstance(x, np.ndarray))
-        scalars = Sample._extract_if(pure_data, lambda x: not hasattr(x, "__len__"))
-        strings = Sample._extract_if(pure_data, lambda x: isinstance(x, str))
-        arrays = Sample._insert_file_layer(arrays, save_prefix)
-        scalars = Sample._insert_value_layer(scalars)
-        strings = Sample._insert_value_layer(strings)
-        processed_data = dict()
-        processed_data.update(arrays)
-        processed_data.update(scalars)
-        processed_data.update(strings)
-        return processed_data
-
-    @staticmethod
-    def _pure_data(data, save_prefix):
-        """Transform saved data according to specification to pure data again, i.e. (key, value) pairs"""
-        pure_data = dict()
-        for key, value in loaded_data.items():
-            if "value" in value:
-                pure_data[key] = value["value"]
-            elif "file" in value:
-                file_path = os.path.join(sample_dir, os.path.normpath(value["file"]))
-                pure_data[key] = np.load(file_path)
-        return pure_data
-
-    @staticmethod
-    def _extract_if(data_dict=None, func=lambda x: x is None):
-        """From data_dict extract elements, whose values positively evaluate func"""
-        if data_dict is None:
-            data_dict = dict()
-        extract = dict()
-        for key, value in data_dict.items():
-            if func(value):
-                extract[key] = value
-        return extract
-
-    @staticmethod
-    def _insert_file_layer(data, save_prefix):
-        """Transform data from {key:value} to {key: {"file": filename relative to save_prefix}}"""
-        processed = dict()
-        for key, value in data.items():
-            file_name = key + stamp() + ".npy"
-            file_path = os.path.join(save_prefix, file_name)
-            np.save(file_path, value)
-            processed[key] = {"file": file_name}
-        return processed
-
-    @staticmethod
-    def _insert_value_layer(data_dict=None):
-        """Transform data_dict from {key:value} to {key: {"value": value}} according to specification of a sample"""
-        if data_dict is None:
-            data_dict = dict()
-        processed = dict()
-        for key, value in data_dict.items():
-            processed[key] = {"value": value}
-        return processed
-
-    @staticmethod
-    def _pure_sample(loaded_sample, sample_dir):
-        """Transform saved sample according to specification to pure sample again"""
-        pure_sample = dict()
-        pure_sample["done"] = loaded_sample["done"]
-        pure_sample["name"] = loaded_sample["name"]
-        pure_sample["args"] = Sample._pure_data(loaded_sample, sample_dir, target="args")
-        pure_sample["result"] = Sample._pure_data(loaded_sample, sample_dir, target="result")
-        return pure_sample
-
-
-
-# @todo move the reading/writing responsibility to the CachedSample/SampleProxy class
-class Sampler:
-    """
-    Sampler object is rather stateless, the state is given by what samples exist on the filesystem.
-    Samples themselves are not held by Sampler, they are fetched lazily, when accessing the data or actually sampling.
-    """
-
-    def __init__(self, name, prefix, func, resample=False):
-        self._func = func
-        self._samples_dir = os.path.join(prefix, name)
-        # @todo have a watch on _samples_dir that sets _samples_dir_changed = True
-        # @todo ONLY when a sample_dir is created or deleted. Sample will take care of modifications in its own dir.
-        self._samples = []
-        self._first_get = True
-        self._samples_list_outdated = False
-        if os.path.exists(self._samples_dir):
-            log.info("samples_dir {} exists", self._samples_dir)
-            if resample:
-                log.info("results will be computed again")
-            else:
-                log.info("existing results will be skipped")
-        else:
-            os.makedirs(self._samples_dir, exist_ok=False)
-
-    @property
-    def samples_dir(self):
-        return self._samples_dir
-
-    def add(self, input_args, name=None):
-        """Add a point in argument space to be sampled for results"""
-        if name is None:
-            name = stamp()
-        sample_dir = os.path.join(self._samples_dir, name)
-        sample_data = {
-            "name": name,
-            "done": False,
-            "args": Sampler._processed_data(input_args, sample_dir, file_target="args")
-        }
-        self._samples.append(Sample(sample_dir, name, init_data=sample_data))
-
-
-    def remove(self, name):
-        """Remove sample with name"""
-        with os.scandir(self._samples_dir) as it:
-            for sample in it:
-                if sample.is_dir() and sample.name == name:
-                    sample_dir = os.path.join(self._samples_dir, name)
-                    shutil.rmtree(sample_dir)
-
-    def remove_if(self, matcher):
-        """Remove sample if the matcher evaluates to True. Matcher is function: sample -> bool"""
-        with os.scandir(self._samples_dir) as it:
-            for sample in it:
-                if sample.is_dir():
-                    sample_dir = os.path.join(self._samples_dir, sample.name)
-                    sample_file_path = os.path.join(sample_dir, sample.name + ".json")
-                    with open(sample_file_path, "r") as sample_file:
-                        loaded_sample = json.load(sample_file)
-                    _pure_sample = Sampler._pure_sample(loaded_sample, sample_dir)
-                    if matcher(_pure_sample):
-                        shutil.rmtree(sample_dir)
-                        return
-
-    def result(self, name):
-        """Return the result dict of sample with name"""
-        with os.scandir(self._samples_dir) as it:
-            for sample in it:
-                if sample.is_dir() and sample.name == name:
-                    sample_dir = os.path.join(self._samples_dir, name)
-                    sample_file_path = os.path.join(sample_dir, name + ".json")
-                    with open(sample_file_path, "r") as sample_file:
-                        loaded = json.load(sample_file)
-                    return Sampler._pure_data(loaded, sample_dir, "result")
-
-    def run(self, n_jobs=2):
-        """Perform the function for all input_args
-
-        Gather tasks, then perform by spawning multiple threads.
-        """
-        task_arguments = []
-        with os.scandir(self._samples_dir) as it:
-            for sample in it:
-                if sample.is_dir():
-                    sample_dir = os.path.join(self._samples_dir, sample.name)
-                    sample_file_path = os.path.join(sample_dir, sample.name + ".json")
-                    with open(sample_file_path, "r") as sample_file:
-                        loaded = json.load(sample_file)
-                    if not loaded["done"]:
-                        task_arguments.append((self._func, sample_dir, sample_file_path))
-
-        with pm.Pool(processes=n_jobs) as p:
-            for _, _ in enumerate(p.imap_unordered(Sampler._task, task_arguments, 1)):
-                pass
-
-    @staticmethod
-    def _task(params):
-        """Wrap the function to be performed to also do the argument-fetching and result-writing
-
-        Fetch the arguments from sample_file, reading in array data from other places if necessary (read only).
-        Perform the function func with given arguments.
-        Save any array data to new files and save path to results.
-        Write results to sample_file.
-        """
-        func, sample_dir, sample_file_path = params
-
-        with open(sample_file_path, "r") as sample_file:
-            sample = json.load(sample_file)
-        pure_args = Sampler._pure_data(sample, sample_dir, target="args")
-
-        pure_result = func(**pure_args)
-
-        processed_result = Sampler._processed_data(pure_result, sample_dir, file_target="result")
-        if "result" in sample:
-            sample.pop("result")
-        sample["result"] = processed_result
-        sample["done"] = True
-        with open(sample_file_path, "w") as sample_file:
-            json.dump(sample, sample_file)
-
-    @property
-    def samples(self):
-        # @todo first: greedy gather a new list of Samples
-        # @todo second: keep a cached version, check if samples_dir has been touched, if so update list
-        # consider https://github.com/gorakhargosh/watchdog
-        # derive FileSystemEventHandler and implement on_modified() on_deleted() etc...
-        if self._first_get:
-            self._update_samples_list()
-        elif self._samples_list_outdated:
-            self._update_samples_list()
-        return self._samples
-
-    def _update_samples_list(self):
-        self._samples_list_outdated = False
-        self._samples = []
-        with os.scandir(self._samples_dir) as it:
-            for sample in it:
-                if sample.is_dir():
-                    sample_dir = os.path.join(self._samples_dir, sample.name)
-                    self._samples.append(CachedSample(sample_dir, sample.name))
-
-
-
-class CachedArray:
-    """Array which resides on disk, and is only loaded when explicitly obtained, i.e. __get__"""
-    def __init__(self, file_path):
-        self._file_path = file_path
-        self._cached_value = None
-        self._first_get = True
-
-    def __get__(self, instance, owner):
-        if self._first_get:
-            self._first_get = False
-            self._update_cached_value()
-        elif self._changed():
-            self._update_cached_value()
-        return self._cached_value
-
-    def _changed(self):
-        return False
-
-    def _update_cached_value(self):
-        self._cached_value = np.load(self._file_path)
-        pass
-
-
-class CachedSample:
-    """Provide read only access to samples on disk. Data is only read from disk if it changed or it is requested"""
-
-    def __init__(self, sample_dir, sample_name):
-        self._cached_pure_sample = dict()
-        self._sample_dir = sample_dir
-        self._sample_name = sample_name
-        self._sample_file_path = os.path.join(sample_dir, sample_name + ".json")
-        self._update_cache()
-        # @todo have a watch on sample_dir for any modifications
-
-    @property
-    def args(self):
-        """Return copy of args"""
-        if self._outdated():
-            self._update_cache()
-        return self._cached_pure_sample["args"]
-
-    @property
-    def result(self):
-        """Return copy of result"""
-        if self._outdated():
-            self._update_cache()
-        return self._cached_pure_sample["result"]
+            self._data = {
+                "name": name,
+                "done": False,
+                "args": args
+            }
+            self._write()
 
     @property
     def name(self):
-        if self._outdated():
-            self._update_cache()
-        return self._cached_pure_sample["name"]
+        return self["name"]
 
     @property
     def done(self):
-        if self._outdated():
-            self._update_cache()
-        return self._cached_pure_sample["done"]
+        return self["done"]
 
-    def __repr__(self):
-        s = "CachedSample("
-        s += str(self._cached_pure_sample)
-        s += ")"
-        return s
+    @property
+    def args(self):
+        return self["args"]
 
-    def _outdated(self):
-        """Check if the json file changed"""
-        # @todo watch on sample_dir
-        return False
+    @property
+    def result(self):
+        if "result" in self._data:
+            return self["result"]
+        return {}
 
-    def _update_cache(self):
-        """Read json file, convert to pure, write to cached_pure_sample. The pure cache directly holds
-        scalar data. For arrays it holds another cached object, which is only read when needed"""
-        with open(self._sample_file_path, "r") as sample_file:
-            sample = json.load(sample_file)
-        self._cached_pure_sample["args"] = Sampler._pure_data(sample, self._sample_dir, target="args")
-        self._cached_pure_sample["result"] = Sampler._pure_data(sample, self._sample_dir, target="result")
-        self._cached_pure_sample["name"] = sample["name"]
-        self._cached_pure_sample["done"] = sample["done"]
+    @property.setter
+    def result(self, value):
+        if "result" in self._data:
+            self._data.pop("result")
+        self._data["result"] = value
+        self._data["done"] = True
+
+    def __getitem__(self, item):
+        if self._outdated:  # currently the only way to outdate the data is by another process
+            self._read()
+        return self._data[item]
+
+    def _write(self):
+        storage_data = Sample._convert_to_storage_data(self._data, self._prefix)
+        with open(self._data_path, "w") as outfile:
+            json.dump(storage_data, outfile)
+
+    def _read(self):
+        with open(self._data_path, "r") as infile:
+            storage_data = json.load(infile)
+        self._data = Sample._convert_to_pure_data(storage_data, self._prefix)
+        self._outdated = False
+
+    @staticmethod
+    def _convert_to_storage_data(data, save_prefix):
+        storage_data = dict()
+        for key, value in data.items():
+            if isinstance(value, str):
+                storage_data[key] = {"value": value}
+            elif isinstance(value, np.ndarray):
+                file_name = key + stamp() + ".npy"
+                file_path = os.path.join(save_prefix, file_name)
+                np.save(file_path, value)
+                storage_data[key] = {"ndarray": file_name}
+            elif isinstance(value, dict):
+                storage_data[key] = {"dict": Sample._convert_to_storage_data(value, save_prefix)}
+            elif not hasattr(value, "__len__"):
+                storage_data[key] = {"value": value}
+            else:
+                # lists and unknown objects are json-pickled
+                pickled = jsonpickle.encode(value)
+                file_name = key + stamp() + ".json"
+                file_path = os.path.join(save_prefix, file_name)
+                with open(file_path, "w") as out:
+                    out.write(pickled)
+                storage_data[key] = {"pickled": file_name}
+        return storage_data
+
+    @staticmethod
+    def _convert_to_pure_data(storage_data, save_prefix):
+        pure_data = dict()
+        for key, value in storage_data.items():
+            if "value" in value:
+                pure_data[key] = value["value"]
+            elif "ndarray" in value:
+                # @todo instead of loadings arrays place CachedArrays at the corresponding locations
+                file_name = value["ndarray"]
+                file_path = os.path.join(save_prefix, file_name)
+                pure_data[key] = np.load(file_path)
+            elif "pickled" in value:
+                file_name = value["pickled"]
+                file_path = os.path.join(save_prefix, file_name)
+                with open(file_path, "r") as infile:
+                    pickled = infile.read()
+                pure_data[key] = jsonpickle.decode(pickled)
+            elif "dict" in value:
+                pure_data[key] = Sample._convert_to_pure_data(value["dict"], save_prefix)
+            else:
+                raise RuntimeError("Unknown storage data object with key " + key)
+        return pure_data
+
+
+def list_of_samples(samples_dir=os.getcwd()):
+    samples = []
+    with os.scandir(samples_dir) as it:
+        for sample in it:
+            if sample.is_dir():
+                samples.append(Sample(samples_dir, sample.name))
+    return samples
+
+
+def run(func, samples, n_jobs=2):
+    """Gather tasks, then perform in parallel"""
+
+    def task(sample):
+        sample.result = func(**sample.args)
+
+    todo_samples = [s for s in samples if not s.done]
+
+    with pm.Pool(processes=n_jobs) as p:
+        for _, _ in enumerate(p.imap_unordered(task, todo_samples, 1)):
+            pass

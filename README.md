@@ -11,66 +11,43 @@ def solve(x=None, y=None):
   # a lengthy calculation
   return {"product": x * y}
 
-s = sampler.Sampler("foo", prefix="/my/data/dir", solve)
-s.add({"x": 2, "y": "barbara"}, "myfirstsample")
-s.sample()
-s.result("myfirstsample")["product"] == "barbarabarbara" # yields True
+s = sampler.Sample("/my/data/dir", args={"x": 2, "y": "barbara"})
+sampler.run(solve, [s])
+s.result["product"] == "barbarabarbara" # yields True
 ```
-
-Sampler performs these tasks using multiple threads, saving the results to files, organized according to 
-the [specification](#specification) and provides access to the samples' arguments and results.
 
 This is useful when writing the `solve` is quickly done, but then performing it for thousands of samples, 
 saving results to files, handling the IO yourself, suddenly becomes a major overhead.
 
-## Specification
+## The Sample
 
-Each sample has its own file. This allows moving samples from one sampler to another if data 
-shall be reused there, or move it to another machine, without having to copy the whole data-tree.
-An example for a `sample-label1.json` is
+
+## Storage data
+
 ```json
 {
   "name": "sample-label1",
   "done": true,
   "args": {
     "length": {"value": 4},
-    "grid": {"file": "rel/path/to/args.npy"}
+    "grid": {"ndarray": "rel/path/to/args.npy"},
+    "some_more": {
+      "dict": {"x": {"value": 1}, "y": {"value": 2}}
+    }
   },
   "result": {
     "time": {"value": 15.5},
-    "distribution": {"file": "the/distr.npy"}
-  }
-}
-```
-Another sample might have the following `sample-label2.json`. It contains no result yet.
-```json
-{
-  "name": "sample-label2",
-  "done": false,
-  "args": {
-    "length": {"value": 1}
+    "distribution": {"ndarray": "the/distr.npy"}
   }
 }
 ```
 The filesystem is then organized as follows
 ```bash
-prefix/
-  name/ # samples_dir
+name/ # samples_dir
     sample-label1/
-      sample-label1.json # scalar data is here
-      args/
-        # array data goes here
-      result/
-        # array data goes here
+        sample-label1.json # scalar data is here
+        array-bla.npy # numpy arrays are saved in separate files
     sample-label2/
-      sample-label2.json
-      args/
-      result/
+        sample-label2.json
+        complex-obj.json # arbitrary objects are json-pickled
 ```
-
-A sample is represented on the filesystem by its directory, which is why its name must be unique. 
-Trying to add a sample with an already existing name should raise an error.
-
-The state of a particular Sampler itself persists without a runtime. Its state 
-can always be reconstructed from the filesystem under `prefix`, that can be loaded when 
-constructing another Sampler object.

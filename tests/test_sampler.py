@@ -94,6 +94,7 @@ class TestRun(TestSampleBase):
         np.testing.assert_array_equal(s3.result["product"], np.array([6., 6.]))
 
 
+# @todo test get_list_of_samples
 # @todo case where same file is processed by one thread and read by another at the same time,
 # i.e. there exist two instances of Sample pointing to the same file
 

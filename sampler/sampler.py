@@ -34,6 +34,8 @@ def stamp(random_digits=8):
 
 
 # @todo to guarantee safe parallel access, set up a mini server, that holds the list of samples
+# @todo how to move already existing files into sample_dir, e.g. created during task() or given as args or result
+# possible: on _write() if value is point to a file, move this file to sample_dir and save this in storage data as {file: path}
 
 class Sample(object):
     # assume that the file will only be manipulated by this object, thus no watching required

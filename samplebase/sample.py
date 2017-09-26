@@ -11,6 +11,7 @@ import samplebase.util as util
 
 
 class Sample(object):
+    """Currently read and write operations should be done manually"""
     def __init__(self, parent_prefix, name=None, args=None):
         if not ((name is not None) or (args is not None)):
             raise RuntimeError("Either name or initial arguments (or both) must be given.")
@@ -31,7 +32,7 @@ class Sample(object):
                 "done": False,
                 "args": args
             }
-            self._write()
+            self.write()
 
     @property
     def name(self):
@@ -40,17 +41,19 @@ class Sample(object):
     @property
     def done(self):
         if self._outdated:
-            self._read()
+            self.read()
         return self["done"]
 
     @property
     def args(self):
+        if self._outdated:
+            self.read()
         return self["args"]
 
     @property
     def result(self):
         if self._outdated:
-            self._read()
+            self.read()
         if "result" in self._data:
             return self["result"]
         return {}
@@ -59,19 +62,19 @@ class Sample(object):
     def result(self, value):
         self._data["result"] = value
         self._data["done"] = True
-        self._write()
+        self.write()
 
     def __getitem__(self, item):
         if self._outdated:  # currently the only way to outdate the data is by another process
-            self._read()
+            self.read()
         return self._data[item]
 
-    def _write(self):
+    def write(self):
         storage_data = Sample._convert_to_storage_data(self._data, self._prefix)
         with open(self._data_path, "w") as outfile:
             json.dump(storage_data, outfile)
 
-    def _read(self):
+    def read(self):
         with open(self._data_path, "r") as infile:
             storage_data = json.load(infile)
         self._data = Sample._convert_to_pure_data(storage_data, self._prefix)

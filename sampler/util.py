@@ -1,9 +1,23 @@
 # coding=utf-8
 
 import logging
+import time
+import random
+import string
 
 __license__ = "LGPL"
 __author__ = "chrisfroe"
+
+
+def stamp(random_digits=8):
+    """
+    Generate a string based on the current date, time and an 8-digit
+    random string, which shall be guarantee enough not to generate the same string twice
+    """
+    timestamp = time.strftime("%Y_%m_%d-%H_%M_%S")
+    randomstamp = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(random_digits))
+    _stamp = timestamp + "_" + randomstamp
+    return _stamp
 
 
 class Message(object):

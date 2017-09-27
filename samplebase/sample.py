@@ -89,7 +89,7 @@ class DocumentBase(object):
 
 
 class Sample(DocumentBase):
-    """Currently read and write operations should be done manually"""
+    """Specify Document. Introduce args, result, name and done"""
 
     def __init__(self, parent_prefix, name=None, args=None):
         if not ((name is not None) or (args is not None)):

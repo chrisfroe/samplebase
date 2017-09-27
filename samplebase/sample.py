@@ -10,75 +10,34 @@ import numpy as np
 import samplebase.util as util
 
 
-class Sample(object):
-    """Currently read and write operations should be done manually"""
-    def __init__(self, parent_prefix, name=None, args=None):
-        if not ((name is not None) or (args is not None)):
-            raise RuntimeError("Either name or initial arguments (or both) must be given.")
-        if args is None:
-            args = dict()
-        if name is None:
-            name = util.stamp()
+class DocumentBase(object):
+    """
+    Base class has data field, which is read from and written to 'data_path'. Accessory data is saved
+    under 'prefix'
+    """
+
+    def __init__(self, data_path, prefix):
+        """Data path points to the main storage document, which is contained in the directory 'prefix' """
         self._data = None
+        self._data_path = data_path
+        self._prefix = prefix
         self._outdated = True
-        self._prefix = os.path.join(parent_prefix, name)
-        self._data_path = os.path.join(self._prefix, name + ".json")
-        if not os.path.exists(self._prefix):
-            os.makedirs(self._prefix, exist_ok=False)
-
-        if not os.path.exists(self._data_path):
-            self._data = {
-                "name": name,
-                "done": False,
-                "args": args
-            }
-            self.write()
-
-    @property
-    def name(self):
-        return self["name"]
-
-    @property
-    def done(self):
-        if self._outdated:
-            self.read()
-        return self["done"]
-
-    @property
-    def args(self):
-        if self._outdated:
-            self.read()
-        return self["args"]
-
-    @property
-    def result(self):
-        if self._outdated:
-            self.read()
-        if "result" in self._data:
-            return self["result"]
-        return {}
-
-    @result.setter
-    def result(self, value):
-        self._data["result"] = value
-        self._data["done"] = True
-        self.write()
-
-    def __getitem__(self, item):
-        if self._outdated:  # currently the only way to outdate the data is by another process
-            self.read()
-        return self._data[item]
 
     def write(self):
-        storage_data = Sample._convert_to_storage_data(self._data, self._prefix)
+        storage_data = DocumentBase._convert_to_storage_data(self._data, self._prefix)
         with open(self._data_path, "w") as outfile:
             json.dump(storage_data, outfile)
 
     def read(self):
         with open(self._data_path, "r") as infile:
             storage_data = json.load(infile)
-        self._data = Sample._convert_to_pure_data(storage_data, self._prefix)
+        self._data = DocumentBase._convert_to_pure_data(storage_data, self._prefix)
         self._outdated = False
+
+    def __getitem__(self, item):
+        if self._outdated:
+            self.read()
+        return self._data[item]
 
     @staticmethod
     def _convert_to_storage_data(data, save_prefix):
@@ -92,7 +51,7 @@ class Sample(object):
                 np.save(file_path, value)
                 storage_data[key] = {"ndarray": file_name}
             elif isinstance(value, dict):
-                storage_data[key] = {"dict": Sample._convert_to_storage_data(value, save_prefix)}
+                storage_data[key] = {"dict": DocumentBase._convert_to_storage_data(value, save_prefix)}
             elif not hasattr(value, "__len__"):
                 storage_data[key] = {"value": value}
             else:
@@ -123,7 +82,55 @@ class Sample(object):
                     pickled = infile.read()
                 pure_data[key] = jsonpickle.decode(pickled)
             elif "dict" in value:
-                pure_data[key] = Sample._convert_to_pure_data(value["dict"], save_prefix)
+                pure_data[key] = DocumentBase._convert_to_pure_data(value["dict"], save_prefix)
             else:
                 raise RuntimeError("Unknown storage data object with key " + key)
         return pure_data
+
+
+class Sample(DocumentBase):
+    """Currently read and write operations should be done manually"""
+
+    def __init__(self, parent_prefix, name=None, args=None):
+        if not ((name is not None) or (args is not None)):
+            raise RuntimeError("Either name or initial arguments (or both) must be given.")
+        if args is None:
+            args = dict()
+        if name is None:
+            name = util.stamp()
+        prefix = os.path.join(parent_prefix, name)
+        data_path = os.path.join(prefix, name + ".json")
+        super().__init__(data_path, prefix)
+        if not os.path.exists(self._prefix):
+            os.makedirs(self._prefix, exist_ok=False)
+
+        if not os.path.exists(self._data_path):
+            self._data = {
+                "name": name,
+                "done": False,
+                "args": args,
+                "result": {}
+            }
+            self.write()
+
+    @property
+    def name(self):
+        return self["name"]
+
+    @property
+    def done(self):
+        return self["done"]
+
+    @property
+    def args(self):
+        return self["args"]
+
+    @property
+    def result(self):
+        return self["result"]
+
+    @result.setter
+    def result(self, value):
+        self._data["result"] = value
+        self._data["done"] = True
+        self.write()

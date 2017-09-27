@@ -4,7 +4,9 @@
 
 In-process (server-less), file-local, ad-hoc, document-based database of samples/tasks
 and parallel map() utility to process the samples. Each sample is an independent object handling
-its own IO. This allows to trivially parallelise mapping a function onto a list of samples.
+its own IO. This allows to trivially parallelise mapping a function onto a list of samples, but
+means careful reading and writing. If samples are only processed with the utilities, everything should
+be fine.
 """
 
 import os
@@ -24,9 +26,7 @@ log = util.StyleAdapter(logging.getLogger(__name__))
 
 # @todo to guarantee safe parallel access, set up a mini server, that holds the list of samples
 # @todo how to move already existing files into sample_dir, e.g. created during task() or given as args or result
-# possible: on write() if value is point to a file,
-# move this file to sample_dir and save this in storage data as {file: path}
-# better: run_task to do post-processing
+# better: run_task to do pre/post-processing
 
 # @todo time_it decorator for tasks, some log statements
 
@@ -57,7 +57,7 @@ def run(func, samples, n_jobs=1):
 
 
 def run_task(func, samples, n_jobs=1):
-    """Similar to run, but map func on samples, to do whatever. Useful for post processing of args or results"""
+    """Similar to run, but map func on samples, to do whatever. Useful for pre/post processing of args or results"""
 
     def task(sample):
         func(sample)

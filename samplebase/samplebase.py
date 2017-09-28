@@ -30,6 +30,22 @@ log = util.StyleAdapter(logging.getLogger(__name__))
 
 # @todo time_it decorator for tasks, some log statements
 
+# @todo client server structure:
+# - with sockets and the serversocket bound to 'localhost' https://docs.python.org/3.6/howto/sockets.html
+#   this would be best if samples should at some point be available remotely
+# - named pipes in python are like files, which are written to by one process and read by another
+# - message Queue in python to function in a similar way
+
+# server has to know which samples to hold, but this is information that only clients have
+
+# server holds lists of samples, and passes these to clients (only pickled storage_data.json,
+# the client will have to load additional files). Sample will then be blocked (for writing!), until
+# the client messages that he is done (i.e. client has written additional files and gives back the pickled .json).
+# then the sample is unlocked again on the server and free for use.
+
+# clients will use a Sample object with a contextmanager such that aquiring
+# message and closing message is done via scope.
+
 
 def list_of_samples(samples_dir=os.getcwd()):
     samples = []

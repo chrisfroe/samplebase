@@ -46,6 +46,8 @@ log = util.StyleAdapter(logging.getLogger(__name__))
 # clients will use a Sample object with a contextmanager such that aquiring
 # message and closing message is done via scope.
 
+# @fixme server/user handles IO in anyway, server could give out ThinSample(prefix, name), so that workers can aquire the actual Sample from server
+
 
 def list_of_samples(samples_dir=os.getcwd()):
     samples = []

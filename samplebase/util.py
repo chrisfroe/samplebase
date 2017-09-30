@@ -25,7 +25,7 @@ def stamp(random_digits=8):
     return _stamp
 
 
-def acquire_filelock(lock_path, time_out_seconds=1):
+def acquire_filelock(lock_path, time_out_seconds=0.05):
     acquired = False
     while not acquired:
         try:

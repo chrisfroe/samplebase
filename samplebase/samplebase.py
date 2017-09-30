@@ -24,37 +24,6 @@ logging.basicConfig(format='[samplebase] [%(asctime)s] [%(levelname)s] %(message
 log = logutil.StyleAdapter(logging.getLogger(__name__))
 
 
-# @todo to guarantee safe parallel access, set up a mini server, that holds the list of samples
-# @todo how to move already existing files into sample_dir, e.g. created during task() or given as args or result
-# better: run_task to do pre/post-processing
-
-# @todo time_it decorator for tasks, some log statements
-
-# @todo client server structure:
-# - with sockets and the serversocket bound to 'localhost' https://docs.python.org/3.6/howto/sockets.html
-#   this would be best if samples should at some point be available remotely
-# - named pipes in python are like files, which are written to by one process and read by another
-# - message Queue in python to function in a similar way
-
-# server has to know which samples to hold, but this is information that only clients have
-
-# server holds lists of samples, and passes these to clients (only pickled storage_data.json,
-# the client will have to load additional files). Sample will then be blocked (for writing!), until
-# the client messages that he is done (i.e. client has written additional files and gives back the pickled .json).
-# then the sample is unlocked again on the server and free for use.
-
-# clients will use a Sample object with a contextmanager such that aquiring
-# message and closing message is done via scope.
-
-# @fixme server/user handles IO in anyway, server could give out ThinSample(prefix, name), so that workers can aquire the actual Sample from server
-
-# @fixme on creation, select mode 'w' or 'r',
-# 'w': is used for creating new samples and writing results,
-# creates a lock on the sample via file '*.json.lock', with renaming operation, that throws when lock already exists
-# i.e. sample is manually locked on creation and should be closed, maybe with context manager (RAII)
-# 'r': is only used for reading,
-
-
 def list_of_samples(samples_dir):
     """
     Return read-only samples from given directory. These objects will not reflect future changes
@@ -86,7 +55,7 @@ def run_parallel(func, prefix, sample_names, n_jobs=1):
                 sample.result = func(**sample.args)
 
     with pm.Pool(processes=n_jobs) as p:
-        for _, _ in enumerate(p.imap_unordered(task, sample_names, 1)):
+        for _ in p.imap_unordered(task, sample_names, 1):
             pass
 
 
@@ -98,5 +67,5 @@ def process_parallel(func, prefix, sample_names, n_jobs=1):
             func(sample)
 
     with pm.Pool(processes=n_jobs) as p:
-        for _, _ in enumerate(p.imap_unordered(task, sample_names, 1)):
+        for _ in p.imap_unordered(task, sample_names, 1):
             pass

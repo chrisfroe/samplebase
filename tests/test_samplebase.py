@@ -97,11 +97,27 @@ class TestRun(TestSampleBase):
     def test_run_parallel_on_same_sample(self):
         sb.Sample(self.tmp_prefix, name="sam", args={"x": 2, "y": 3})
         sb.run_parallel(TestRun.f, self.tmp_prefix, ["sam", "sam", "sam", "sam", "sam"], n_jobs=5)
+        s = sb.Sample(self.tmp_prefix, name="sam")
+        self.assertEqual(s.result["product"], 6)
 
+    def test_get_samples(self):
+        for _ in range(100):
+            sb.Sample(self.tmp_prefix, args={"x": 2, "y": 3})
+        names = sb.names_of_samples(self.tmp_prefix)
+        sb.run_parallel(TestRun.f, self.tmp_prefix, names, n_jobs=4)
+        samples = sb.list_of_samples(self.tmp_prefix)
+        for i in range(100):
+            self.assertEqual(samples[i].result["product"], 6)
 
-# @todo test get_list_of_samples
-# @todo case where same file is processed by one thread and read by another at the same time,
-# i.e. there exist two instances of Sample pointing to the same file
+    def test_multiply_four_times(self):
+        def f(sample):
+            sample.args["x"] = sample.args["x"] * 2
+
+        sb.Sample(self.tmp_prefix, name="sam", args={"x": 2, "y": 3})
+        sb.process_parallel(f, self.tmp_prefix, ["sam", "sam", "sam", "sam"], n_jobs=4)
+        s = sb.Sample(self.tmp_prefix, name="sam")
+        self.assertEqual(s.args["x"], 32)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -111,7 +111,6 @@ class DocumentBase(object):
             if "value" in value:
                 pure_data[key] = value["value"]
             elif "ndarray" in value:
-                # @todo instead of loadings arrays place CachedArrays at the corresponding locations
                 file_name = value["ndarray"]
                 file_path = os.path.join(save_prefix, file_name)
                 pure_data[key] = np.load(file_path)
@@ -174,4 +173,3 @@ class Sample(DocumentBase):
     def result(self, value):
         self._data["result"] = value
         self._data["done"] = True
-        self._write()

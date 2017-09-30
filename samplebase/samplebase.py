@@ -48,6 +48,11 @@ log = util.StyleAdapter(logging.getLogger(__name__))
 
 # @fixme server/user handles IO in anyway, server could give out ThinSample(prefix, name), so that workers can aquire the actual Sample from server
 
+# @fixme on creation, select mode 'w' or 'r',
+# 'w': is used for creating new samples and writing results,
+# creates a lock on the sample via file '*.json.lock', with renaming operation, that throws when lock already exists
+# i.e. sample is manually locked on creation and should be closed, maybe with context manager (RAII)
+
 
 def list_of_samples(samples_dir=os.getcwd()):
     samples = []

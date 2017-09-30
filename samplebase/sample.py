@@ -1,42 +1,82 @@
 # coding=utf-8
 
-"""Sample object holds data and handles IO"""
+"""Sample object hold data and handle IO"""
 
 import os
 import json
 import jsonpickle
 import numpy as np
+import logging
 
 import samplebase.util as util
+import samplebase.logutil as logutil
+
+log = logutil.StyleAdapter(logging.getLogger(__name__))
+
+__all__ = ["SampleContextManager", "Sample", "DocumentBase"]
+
+
+class SampleContextManager(object):
+    """
+    Assure that only ever one user is processing the sample.
+    Another user may read the sample but will only get the old state from file. Only when this manager
+    exits, will the resulting state be written to file.
+    """
+
+    def __init__(self, prefix, name):
+        self.s = None
+        self.prefix = prefix
+        self.name = name
+        self.lockfile_path = os.path.join(self.prefix, self.name, self.name + ".processlock")
+
+    def __enter__(self):
+        util.acquire_filelock(self.lockfile_path)
+        self.s = Sample(self.prefix, name=self.name)
+        return self.s
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.s._write()
+        util.release_filelock(self.lockfile_path)
 
 
 class DocumentBase(object):
     """
     Base class has data field, which is read from and written to 'data_path'. Accessory data is saved
-    under 'prefix'
+    under 'prefix'. Read and write operations are thread-safe, if the same document on file is shared
+    between multiple users.
     """
 
-    def __init__(self, data_path, prefix):
+    def __init__(self, data_path, prefix, init_data=None):
         """Data path points to the main storage document, which is contained in the directory 'prefix' """
         self._data = None
         self._data_path = data_path
         self._prefix = prefix
-        self._outdated = True
+        self._readwrite_lock = data_path + ".readwritelock"
+        if init_data is not None:
+            # create new document
+            self._data = init_data
+            if not os.path.exists(self._prefix):
+                os.makedirs(self._prefix, exist_ok=False)
+            self._write()
+        else:
+            # read document data
+            self._read()
 
-    def write(self):
+    def _write(self):
+        util.acquire_filelock(self._readwrite_lock)
         storage_data = DocumentBase._convert_to_storage_data(self._data, self._prefix)
         with open(self._data_path, "w") as outfile:
             json.dump(storage_data, outfile)
+        util.release_filelock(self._readwrite_lock)
 
-    def read(self):
+    def _read(self):
+        util.acquire_filelock(self._readwrite_lock)
         with open(self._data_path, "r") as infile:
             storage_data = json.load(infile)
         self._data = DocumentBase._convert_to_pure_data(storage_data, self._prefix)
-        self._outdated = False
+        util.release_filelock(self._readwrite_lock)
 
     def __getitem__(self, item):
-        if self._outdated:
-            self.read()
         return self._data[item]
 
     @staticmethod
@@ -92,26 +132,27 @@ class Sample(DocumentBase):
     """Specify Document. Introduce args, result, name and done"""
 
     def __init__(self, parent_prefix, name=None, args=None):
+        """Specify a name to load an existing sample out of parent_prefix or specify args to create a new one"""
         if not ((name is not None) or (args is not None)):
             raise RuntimeError("Either name or initial arguments (or both) must be given.")
-        if args is None:
-            args = dict()
-        if name is None:
-            name = util.stamp()
-        prefix = os.path.join(parent_prefix, name)
-        data_path = os.path.join(prefix, name + ".json")
-        super().__init__(data_path, prefix)
-        if not os.path.exists(self._prefix):
-            os.makedirs(self._prefix, exist_ok=False)
-
-        if not os.path.exists(self._data_path):
-            self._data = {
+        if args is not None:
+            # create a new sample
+            if name is None:
+                name = util.stamp()
+            prefix = os.path.join(parent_prefix, name)
+            data_path = os.path.join(prefix, name + ".json")
+            init_data = {
                 "name": name,
                 "done": False,
                 "args": args,
                 "result": {}
             }
-            self.write()
+            super().__init__(data_path, prefix, init_data=init_data)
+        else:
+            # load sample
+            prefix = os.path.join(parent_prefix, name)
+            data_path = os.path.join(prefix, name + ".json")
+            super().__init__(data_path, prefix)
 
     @property
     def name(self):
@@ -133,4 +174,4 @@ class Sample(DocumentBase):
     def result(self, value):
         self._data["result"] = value
         self._data["done"] = True
-        self.write()
+        self._write()

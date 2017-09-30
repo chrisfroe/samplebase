@@ -1,9 +1,14 @@
 # coding=utf-8
 
+import os
 import logging
 import time
 import random
 import string
+
+import samplebase.logutil as logutil
+
+log = logutil.StyleAdapter(logging.getLogger(__name__))
 
 __license__ = "LGPL"
 __author__ = "chrisfroe"
@@ -20,31 +25,18 @@ def stamp(random_digits=8):
     return _stamp
 
 
-class Message(object):
-    def __init__(self, fmt, args):
-        self.fmt = fmt
-        self.args = args
+def acquire_filelock(lock_path, time_out_seconds=1):
+    acquired = False
+    while not acquired:
+        try:
+            with open(lock_path, "x"):
+                os.utime(lock_path, None)
+        except FileExistsError:
+            log.info("Could not acquire lock, wait for {} s", time_out_seconds)
+            time.sleep(time_out_seconds)
+        else:
+            acquired = True
 
-    def __str__(self):
-        return self.fmt.format(*self.args)
 
-
-class StyleAdapter(logging.LoggerAdapter):
-    """Allows to use braced placeholders in logging statements. The format magic happens in Message.
-
-    Usage:
-    Wrap the handler returned by logging.getLogger(__name__) with the
-    StyleAdapter. Do this in every submodule if necessary.
-
-        log = StyleAdapter(logging.getLogger(__name__))
-
-    See https://docs.python.org/3/howto/logging-cookbook.html#use-of-alternative-formatting-styles
-    """
-
-    def __init__(self, logger, extra=None):
-        super(StyleAdapter, self).__init__(logger, extra or {})
-
-    def log(self, level, msg, *args, **kwargs):
-        if self.isEnabledFor(level):
-            msg, kwargs = self.process(msg, kwargs)
-            self.logger._log(level, Message(msg, args), (), **kwargs)
+def release_filelock(lock_path):
+    os.remove(lock_path)

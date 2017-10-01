@@ -25,9 +25,10 @@ class TestSample(TestSampleBase):
 
     def test_array_args_and_result(self):
         args = {"x": 2, "y": np.array([2., 3.])}
-        s = sb.Sample(self.tmp_prefix, args=args, name="smpl")
+        sb.create_sample(self.tmp_prefix, args=args, name="sample")
+        s = sb.Sample(self.tmp_prefix, name="sample")
         self.assertFalse(s.done)
-        self.assertEqual(s.name, "smpl")
+        self.assertEqual(s.name, "sample")
         np.testing.assert_array_equal(s.args["y"], np.array([2., 3.]))
         self.assertEqual(s.args["x"], 2)
         self.assertEqual(s.result, {})
@@ -37,16 +38,12 @@ class TestSample(TestSampleBase):
 
     def test_scalar_args_and_result(self):
         args = {"x": 2, "y": 3}
-        s = sb.Sample(self.tmp_prefix, args=args)
+        sb.create_sample(self.tmp_prefix, args=args, name="sample")
+        s = sb.Sample(self.tmp_prefix, name="sample")
         self.assertFalse(s.done)
         self.assertIsNotNone(s.name)
         self.assertEqual(s.args, {"x": 2, "y": 3})
         self.assertEqual(s.result, {})
-
-    def test_another_sample_object_same_file(self):
-        s1 = sb.Sample(self.tmp_prefix, args={"x": 42}, name="datsample")
-        s2 = sb.Sample(self.tmp_prefix, name="datsample")
-        self.assertEqual(s2.args, {"x": 42})
 
 
 class TestRun(TestSampleBase):
@@ -62,25 +59,25 @@ class TestRun(TestSampleBase):
 
     def test_sample_one_point_scalar(self):
         args = {"x": 2, "y": "ypsilon"}
-        sb.Sample(self.tmp_prefix, name="samplename", args=args)
+        sb.create_sample(self.tmp_prefix, args=args, name="samplename")
         sb.run_parallel(TestRun.f, self.tmp_prefix, ["samplename"])
         s = sb.Sample(self.tmp_prefix, "samplename")
         self.assertEqual(s.result["product"], "ypsilonypsilon")
 
     def test_sample_one_point_array(self):
         args = {"x": 2, "y": np.array([2., 3.])}
-        sb.Sample(self.tmp_prefix, name="samplename", args=args)
+        sb.create_sample(self.tmp_prefix, args=args, name="samplename")
         sb.run_parallel(TestRun.f, self.tmp_prefix, ["samplename"])
         s = sb.Sample(self.tmp_prefix, name="samplename")
         np.testing.assert_array_equal(s.result["product"], np.array([4., 6.]))
 
     def test_sample_three_points_mixed(self):
         args = {"x": 2, "y": np.array([2., 3.])}
-        sb.Sample(self.tmp_prefix, name="samplename1", args=args)
+        sb.create_sample(self.tmp_prefix, args=args, name="samplename1")
         args = {"x": 2, "y": 3}
-        sb.Sample(self.tmp_prefix, name="samplename2", args=args)
+        sb.create_sample(self.tmp_prefix, args=args, name="samplename2")
         args = {"x": np.array([3., 3.]), "y": np.array([2., 2.])}
-        sb.Sample(self.tmp_prefix, name="samplename3", args=args)
+        sb.create_sample(self.tmp_prefix, args=args, name="samplename3")
 
         sb.run_parallel(TestRun.f, self.tmp_prefix, ["samplename1", "samplename2", "samplename3"], n_jobs=3)
 
@@ -95,14 +92,14 @@ class TestRun(TestSampleBase):
         np.testing.assert_array_equal(s3.result["product"], np.array([6., 6.]))
 
     def test_run_parallel_on_same_sample(self):
-        sb.Sample(self.tmp_prefix, name="sam", args={"x": 2, "y": 3})
+        sb.create_sample(self.tmp_prefix, {"x": 2, "y": 3}, name="sam")
         sb.run_parallel(TestRun.f, self.tmp_prefix, ["sam", "sam", "sam", "sam", "sam"], n_jobs=5)
         s = sb.Sample(self.tmp_prefix, name="sam")
         self.assertEqual(s.result["product"], 6)
 
     def test_get_samples(self):
         for _ in range(100):
-            sb.Sample(self.tmp_prefix, args={"x": 2, "y": 3})
+            sb.create_sample(self.tmp_prefix, args={"x": 2, "y": 3})
         names = sb.names_of_samples(self.tmp_prefix)
         sb.run_parallel(TestRun.f, self.tmp_prefix, names, n_jobs=4)
         samples = sb.list_of_samples(self.tmp_prefix)
@@ -113,7 +110,7 @@ class TestRun(TestSampleBase):
         def f(sample):
             sample.args["x"] = sample.args["x"] * 2
 
-        sb.Sample(self.tmp_prefix, name="sam", args={"x": 2, "y": 3})
+        sb.create_sample(self.tmp_prefix, {"x": 2, "y": 3}, name="sam")
         sb.process_parallel(f, self.tmp_prefix, ["sam", "sam", "sam", "sam"], n_jobs=4)
         s = sb.Sample(self.tmp_prefix, name="sam")
         self.assertEqual(s.args["x"], 32)

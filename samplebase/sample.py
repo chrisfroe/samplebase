@@ -15,7 +15,7 @@ log = logutil.StyleAdapter(logging.getLogger(__name__))
 
 __all__ = ["SampleContextManager", "Sample", "Document"]
 
-# @todo rewrite for general Documents, first ctor arg is type, then come args and kwargs for the type ctor
+
 class SampleContextManager(object):
     """
     Assure that only ever one user is processing the sample.
@@ -39,11 +39,6 @@ class SampleContextManager(object):
         util.release_filelock(self.lockfile_path)
 
 
-# @todo creating a new document and opening one for reading must
-# @todo be better distinguished other than providing data or not
-# >>> create_document(data, name=None)
-# >>> s = load_document(name)
-# >>> with ContextManager(Document, name, prefix)
 class Document(object):
     """
     Base class has data field, which is read from and written to 'data_path'. Accessory data is saved
@@ -51,22 +46,15 @@ class Document(object):
     between multiple users.
     """
 
-    def __init__(self, data_path, prefix, init_data=None):
-        """Data path points to the main storage document, which is contained in the directory 'prefix' """
+    def __init__(self, data_path, prefix):
+        """Data path points to the main storage document"""
         self._data = None
         self._data_path = data_path
         self._prefix = prefix
         self._readwrite_lock = data_path + ".readwritelock"
-        if init_data is not None:
-            # create new document
-            self._data = init_data
-            if not os.path.exists(self._prefix):
-                os.makedirs(self._prefix, exist_ok=False)
-            self._write()
-        else:
-            # read document data
-            self._read()
+        self._read()
 
+    # @todo context manager
     def _write(self):
         util.acquire_filelock(self._readwrite_lock)
         storage_data = Document._convert_to_storage_data(self._data, self._prefix)
@@ -135,28 +123,11 @@ class Document(object):
 class Sample(Document):
     """Specify Document. Introduce args, result, name and done"""
 
-    def __init__(self, parent_prefix, name=None, args=None):
-        """Specify a name to load an existing sample out of parent_prefix or specify args to create a new one"""
-        if not ((name is not None) or (args is not None)):
-            raise RuntimeError("Either name or initial arguments (or both) must be given.")
-        if args is not None:
-            # create a new sample
-            if name is None:
-                name = util.stamp()
-            prefix = os.path.join(parent_prefix, name)
-            data_path = os.path.join(prefix, name + ".json")
-            init_data = {
-                "name": name,
-                "done": False,
-                "args": args,
-                "result": {}
-            }
-            super().__init__(data_path, prefix, init_data=init_data)
-        else:
-            # load sample
-            prefix = os.path.join(parent_prefix, name)
-            data_path = os.path.join(prefix, name + ".json")
-            super().__init__(data_path, prefix)
+    def __init__(self, parent_prefix, name):
+        """Specify a name to load an existing sample out of parent_prefix"""
+        prefix = os.path.join(parent_prefix, name)
+        data_path = os.path.join(prefix, name + ".json")
+        super().__init__(data_path, prefix)
 
     @property
     def name(self):

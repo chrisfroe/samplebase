@@ -63,6 +63,8 @@ class Document(object):
         storage_data = Document._convert_to_storage_data(self._data, self._prefix)
         with open(self._data_path, "w") as outfile:
             json.dump(storage_data, outfile)
+            outfile.flush()
+            os.fsync(outfile)
         util.release_filelock(self._readwrite_lock)
 
     def _read(self):

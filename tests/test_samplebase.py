@@ -2,8 +2,10 @@ import unittest
 import tempfile
 import shutil
 import numpy as np
+import time
 
 import samplebase as sb
+import pathos.multiprocessing as pm
 
 
 class TestSampleBase(unittest.TestCase):
@@ -114,6 +116,30 @@ class TestRun(TestSampleBase):
         sb.process_parallel(f, self.tmp_prefix, ["sam", "sam", "sam", "sam"], n_jobs=4)
         s = sb.Sample(self.tmp_prefix, name="sam")
         self.assertEqual(s.args["x"], 32)
+
+    def test_only_process_if_not_being_processed(self):
+        # start 1 lengthy job, start another on the same sample, only if it is not being processed
+        # thus in the end only one job has run
+        def f(sample):
+            time.sleep(2)
+            sample.args["x"] = sample.args["x"] * 2
+
+        prefix = self.tmp_prefix
+
+        def task(name):
+            if not sb.Sample(prefix, name).being_processed:
+                with sb.SampleContextManager(prefix, name) as sample:
+                    f(sample)
+
+        sb.create_sample(self.tmp_prefix, {"x": 2}, name="sam")
+
+        with pm.Pool(processes=3) as p:
+            for _ in p.imap_unordered(task, ["sam", "sam", "sam"], 1):
+                pass
+
+        s = sb.Sample(self.tmp_prefix, name="sam")
+        self.assertEqual(s.args["x"], 4)
+
 
 
 if __name__ == '__main__':

@@ -143,6 +143,11 @@ class Sample(Document):
         return self["done"]
 
     @property
+    def being_processed(self):
+        process_lock_file_path = os.path.join(self._prefix, self.name + ".processlock")
+        return os.path.isfile(process_lock_file_path)
+
+    @property
     def args(self):
         return self["args"]
 

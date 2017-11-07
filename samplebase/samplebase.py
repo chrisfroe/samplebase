@@ -41,6 +41,7 @@ def create_sample(parent_prefix, args, name=None):
             "args": args,
             "result": {}
         }
+    return name
 
 
 def list_of_samples(samples_dir):

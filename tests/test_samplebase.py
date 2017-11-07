@@ -47,6 +47,12 @@ class TestSample(TestSampleBase):
         self.assertEqual(s.args, {"x": 2, "y": 3})
         self.assertEqual(s.result, {})
 
+    def test_numpy_value_in_list(self):
+        args = {"x": [np.sqrt(2.)]}
+        sb.create_sample(self.tmp_prefix, args=args, name="sample")
+        s = sb.Sample(self.tmp_prefix, name="sample")
+        self.assertAlmostEqual(s.args["x"][0], np.sqrt(2.))
+
 
 class TestRun(TestSampleBase):
     @staticmethod

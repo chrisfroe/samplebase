@@ -4,12 +4,16 @@
 
 import os
 import json
-import jsonpickle
 import numpy as np
+import jsonpickle
+import jsonpickle.ext.numpy as jsonpickle_numpy
 import logging
 
 import samplebase.util as util
 import samplebase.logutil as logutil
+
+# to pickle numpy objects, which does not work outofthebox
+jsonpickle_numpy.register_handlers()
 
 log = logutil.StyleAdapter(logging.getLogger(__name__))
 

@@ -1,5 +1,6 @@
 # coding=utf-8
 from setuptools import setup, find_packages
+from distutils.util import convert_path
 from codecs import open
 import os
 
@@ -21,8 +22,8 @@ setup(
 
     author="Christoph Fröhner",
     author_email="christoph.froehner@fu-berlin.de",
-    description="Document-based, serverless, threadsafe (as possible) database to "
-                "easily perform a task in parallel on many samples",
+    description="Document-based, serverless, threadsafe (as possible) database "
+                "with utilities to easily perform a task on many samples in parallel",
     license="LGPL",
     url="https://github.com/chrisfroe/samplebase",
 )

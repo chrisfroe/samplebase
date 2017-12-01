@@ -1,0 +1,37 @@
+version: '{build}'
+image: Visual Studio 2017
+platform:
+- x86
+- x64
+environment:
+  matrix:
+  - CONDA: 36
+  binstar_token:
+    secure: ##### put something here
+install:
+- ps: |
+    if ($env:CONDA -eq "27") { $env:CONDA = "" }
+    if ($env:PLATFORM -eq "x64") { $env:CONDA = "$env:CONDA-x64" }
+    $env:PATH = "C:\Miniconda$env:CONDA\;C:\Miniconda$env:CONDA\Scripts\;$env:PATH"
+    conda config --set always_yes yes --set changeps1 no
+    conda config --add channels conda-forge
+    conda update -q conda
+    conda install -q conda-build
+build_script:
+- ps: |
+    conda build conda.recipe
+    if ($LastExitCode -ne 0) { throw 1  }
+    conda install --use-local samplebase
+    if ($LastExitCode -ne 0) { throw 1  }
+
+branches:
+  only:
+    - master
+
+on_success:
+- ps: |
+    $env:CONDA_PACKAGE_FILE = $(conda build conda.recipe --output) 2> out-null
+    echo "found conda package file $env:CONDA_PACKAGE_FILE"
+    if ($env:APPVEYOR_REPO_TAG -eq "true") { conda install anaconda-client -qy }
+- cmd: IF "%APPVEYOR_REPO_TAG%" == "true" (anaconda -t %binstar_token% upload -u chrisfroe --force %CONDA_PACKAGE_FILE%)
+- ps: echo "done"

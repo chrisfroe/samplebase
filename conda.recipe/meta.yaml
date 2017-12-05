@@ -15,12 +15,14 @@ requirements:
     - python
     - setuptools
     - numpy
+    - jsonpickle
+    - pathos
 
   run:
     - python
-    - scipy
     - numpy
-    - vs2015_runtime  # [win]
+    - jsonpickle
+    - pathos
 
 test:
   imports:

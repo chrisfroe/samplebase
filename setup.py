@@ -17,13 +17,15 @@ setup(
     name="samplebase",
     version=__version__,
     packages=find_packages(),
-
     zip_safe=True,
-
     author="Christoph Fröhner",
     author_email="christoph.froehner@fu-berlin.de",
     description="Document-based, serverless, threadsafe (as possible) database "
                 "with utilities to easily perform a task on many samples in parallel",
     license="LGPL",
     url="https://github.com/chrisfroe/samplebase",
+    install_requires=[
+        "jsonpickle",
+        "pathos"
+    ]
 )

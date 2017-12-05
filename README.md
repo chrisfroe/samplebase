@@ -1,4 +1,4 @@
-# Samplebase
+# Samplebase [![Build Status](https://travis-ci.org/chrisfroe/samplebase.svg?branch=master)](https://travis-ci.org/chrisfroe/samplebase)
 
 Samplebase is a __database__, which is:
 - _in-process/server-less_

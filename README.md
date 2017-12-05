@@ -1,6 +1,6 @@
 # Samplebase
 
-Samplebase is a __database__, that is:
+Samplebase is a __database__, which is:
 - _in-process/server-less_
 - _file-local_, all data lives in a user defined path and can be moved around
 - _document-based/ad-hoc_, no need to define a model beforehand

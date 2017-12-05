@@ -24,8 +24,4 @@ setup(
                 "with utilities to easily perform a task on many samples in parallel",
     license="LGPL",
     url="https://github.com/chrisfroe/samplebase",
-    install_requires=[
-        "jsonpickle",
-        "pathos"
-    ]
 )

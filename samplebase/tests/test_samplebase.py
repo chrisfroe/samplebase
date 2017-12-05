@@ -147,6 +147,5 @@ class TestRun(TestSampleBase):
         self.assertEqual(s.args["x"], 4)
 
 
-
 if __name__ == '__main__':
     unittest.main()

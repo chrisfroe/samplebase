@@ -17,7 +17,7 @@ setup(
     name="samplebase",
     version=__version__,
     packages=find_packages(),
-    zip_safe=True,
+    zip_safe=False,
     author="Christoph Fröhner",
     author_email="christoph.froehner@fu-berlin.de",
     description="Document-based, serverless, threadsafe (as possible) database "

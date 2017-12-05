@@ -7,7 +7,7 @@ environment:
   matrix:
   - CONDA: 36
   binstar_token:
-    secure: ##### put something here
+    secure: 66lm11nr1ZNERrBLlGrXFdbEfnf/AZLO4DxB7h+k0WGtO9Y+oHDVYPhQbmszCNa+
 install:
 - ps: |
     if ($env:CONDA -eq "27") { $env:CONDA = "" }

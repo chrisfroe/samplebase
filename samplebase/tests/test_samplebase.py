@@ -54,6 +54,31 @@ class TestSample(TestSampleBase):
         self.assertAlmostEqual(s.args["x"][0], np.sqrt(2.))
 
 
+class TestContextManager(TestSampleBase):
+    def setUp(self):
+        super(TestContextManager, self).setUp()
+
+    def tearDown(self):
+        super(TestContextManager, self).tearDown()
+
+    def test_raise_if_being_processed(self):
+        def f(sample):
+            time.sleep(2)
+
+        prefix = self.tmp_prefix
+
+        def task(name):
+            with sb.SampleContextManager(prefix, name, raise_if_processing=True) as sample:
+                f(sample)
+
+        sb.create_sample(prefix, args={"x": 2}, name="sample")
+
+        with self.assertRaises(FileExistsError):
+            with pm.Pool(processes=3) as p:
+                for _ in p.imap_unordered(task, ["sample", "sample", "sample"], 1):
+                    pass
+
+
 class TestRun(TestSampleBase):
     @staticmethod
     def f(x=None, y=None):

@@ -25,7 +25,7 @@ def stamp(random_digits=8):
     return _stamp
 
 
-def acquire_filelock(lock_path, time_out_seconds=0.05):
+def acquire_filelock(lock_path, time_out_seconds=0.05, raise_if_exists=False):
     acquired = False
     while not acquired:
         try:
@@ -34,8 +34,11 @@ def acquire_filelock(lock_path, time_out_seconds=0.05):
                 f.flush()
                 os.fsync(f)
         except FileExistsError:
-            log.info("Could not acquire lock, wait for {} s", time_out_seconds)
-            time.sleep(time_out_seconds)
+            if raise_if_exists:
+                raise
+            else:
+                log.info("Could not acquire lock, wait for {} s", time_out_seconds)
+                time.sleep(time_out_seconds)
         else:
             acquired = True
 

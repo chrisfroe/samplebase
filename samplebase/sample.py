@@ -30,11 +30,12 @@ class SampleContextManager(object):
     exits, will the resulting state be written to file.
     """
 
-    def __init__(self, prefix, name):
+    def __init__(self, prefix, name, raise_if_processing=False):
         self.s = None
         self.prefix = prefix
         self.name = name
         self.lockfile_path = os.path.join(self.prefix, self.name, self.name + ".processlock")
+        self.raise_if_processing = raise_if_processing
 
     def __enter__(self):
         util.acquire_filelock(self.lockfile_path)

@@ -19,6 +19,7 @@ log = logutil.StyleAdapter(logging.getLogger(__name__))
 
 __all__ = ["SampleContextManager", "Sample", "Document"]
 
+
 # @todo to make fully thread safe, let server distribute locks
 # @todo how to check if write() has completed before unlocking/releasing?
 

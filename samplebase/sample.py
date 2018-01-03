@@ -38,7 +38,7 @@ class SampleContextManager(object):
         self.raise_if_processing = raise_if_processing
 
     def __enter__(self):
-        util.acquire_filelock(self.lockfile_path)
+        util.acquire_filelock(self.lockfile_path, raise_if_exists=self.raise_if_processing)
         self.s = Sample(self.prefix, name=self.name)
         return self.s
 

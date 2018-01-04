@@ -48,10 +48,18 @@ class TestSample(TestSampleBase):
         self.assertEqual(s.result, {})
 
     def test_numpy_value_in_list(self):
-        args = {"x": [np.sqrt(2.)]}
+        args = {"x": 10*[np.sqrt(2.)]}
         sb.create_sample(self.tmp_prefix, args=args, name="sample")
         s = sb.Sample(self.tmp_prefix, name="sample")
         self.assertAlmostEqual(s.args["x"][0], np.sqrt(2.))
+
+    def test_numpy_arrays_in_list(self):
+        rnd_arr = np.random.random(size=(10,10))
+        args = {"x": 10*[rnd_arr]}
+        sb.create_sample(self.tmp_prefix, args=args, name="sample")
+        s = sb.Sample(self.tmp_prefix, name="sample")
+        for i in range(10):
+            np.testing.assert_array_equal(s.args["x"][i], rnd_arr)
 
 
 class TestContextManager(TestSampleBase):

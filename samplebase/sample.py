@@ -7,6 +7,7 @@ import json
 import numpy as np
 import jsonpickle
 import jsonpickle.ext.numpy as jsonpickle_numpy
+import pickle
 import logging
 
 import samplebase.util as util
@@ -61,22 +62,34 @@ class Document(object):
         self._data_path = data_path
         self._prefix = prefix
         self._readwrite_lock = data_path + ".readwritelock"
+        # @todo profile pickle vs json properly
+        self._human_readable = True
         self._read()
 
     # @todo context manager
     def _write(self):
         util.acquire_filelock(self._readwrite_lock)
         storage_data = Document._convert_to_storage_data(self._data, self._prefix)
-        with open(self._data_path, "w") as outfile:
-            json.dump(storage_data, outfile)
-            outfile.flush()
-            os.fsync(outfile)
+        if self._human_readable:
+            with open(self._data_path, "w") as outfile:
+                json.dump(storage_data, outfile)
+                outfile.flush()
+                os.fsync(outfile)
+        else:
+            with open(self._data_path, "wb") as outfile:
+                pickle.dump(storage_data, outfile, pickle.HIGHEST_PROTOCOL)
+                outfile.flush()
+                os.fsync(outfile)
         util.release_filelock(self._readwrite_lock)
 
     def _read(self):
         util.acquire_filelock(self._readwrite_lock)
-        with open(self._data_path, "r") as infile:
-            storage_data = json.load(infile)
+        if self._human_readable:
+            with open(self._data_path, "r") as infile:
+                storage_data = json.load(infile)
+        else:
+            with open(self._data_path, "rb") as infile:
+                storage_data = pickle.load(infile)
         self._data = Document._convert_to_pure_data(storage_data, self._prefix)
         util.release_filelock(self._readwrite_lock)
 

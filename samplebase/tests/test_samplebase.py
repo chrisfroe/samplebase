@@ -70,6 +70,7 @@ class TestContextManager(TestSampleBase):
         super(TestContextManager, self).tearDown()
 
     def test_raise_if_being_processed(self):
+        # +2 seconds of sleep
         def f(sample):
             time.sleep(2)
 
@@ -159,6 +160,7 @@ class TestRun(TestSampleBase):
     def test_only_process_if_not_being_processed(self):
         # start 1 lengthy job, start another on the same sample, only if it is not being processed
         # thus in the end only one job has run
+        # -> +2 seconds of sleep
         def f(sample):
             time.sleep(2)
             sample.args["x"] = sample.args["x"] * 2

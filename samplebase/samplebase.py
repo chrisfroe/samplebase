@@ -17,6 +17,8 @@ import samplebase.logutil as logutil
 import samplebase.util as util
 from samplebase.sample import *
 
+import pickle
+
 __license__ = "LGPL"
 __author__ = "chrisfroe"
 
@@ -25,15 +27,19 @@ logging.basicConfig(format='[samplebase] [%(asctime)s] [%(levelname)s] %(message
 log = logutil.StyleAdapter(logging.getLogger(__name__))
 
 
-def create_sample(parent_prefix, args, name=None):
+def create_sample(parent_prefix, args, name=None, human_readable=True):
     if name is None:
         name = util.stamp()
     prefix = os.path.join(parent_prefix, name)
     data_path = os.path.join(prefix, name + ".json")
     if not os.path.exists(prefix):
         os.makedirs(prefix, exist_ok=False)
-    with open(data_path, "x") as f:
-        f.write("{}")
+    if human_readable:
+        with open(data_path, "x") as f:
+            f.write("{}")
+    else:
+        with open(data_path, "wb") as outfile:
+            pickle.dump({}, outfile, pickle.HIGHEST_PROTOCOL)
     with SampleContextManager(parent_prefix, name) as sample:
         sample._data = {
             "name": name,

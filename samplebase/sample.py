@@ -103,7 +103,7 @@ class Document(object):
             if isinstance(value, str):
                 storage_data[key] = {"value": value}
             elif isinstance(value, np.ndarray):
-                file_name = key + util.stamp() + ".npy"
+                file_name = str(key) + util.stamp() + ".npy"
                 file_path = os.path.join(save_prefix, file_name)
                 np.save(file_path, value)
                 storage_data[key] = {"ndarray": file_name}

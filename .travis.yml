@@ -1,13 +1,13 @@
-language: python
+language: cpp
 dist: trusty
 sudo: require
-osx_image: xcode8.3
+#osx_image: xcode8.3
 matrix:
   include:
   - os: linux
-    env: CONDA=3.6
+    env: CONDA=3.7
   - os: osx
-    env: CONDA=3.6
+    env: CONDA=3.7
 
 cache:
   apt: true

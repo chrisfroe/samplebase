@@ -28,6 +28,7 @@ branches:
   only:
     - master
 
+# @todo adapt to dev and release targets
 on_success:
 - ps: |
     $env:CONDA_PACKAGE_FILE = $(conda build conda.recipe --output) 2> out-null

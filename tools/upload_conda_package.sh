@@ -27,4 +27,15 @@ CONDA_PACKAGE_FILE=$(conda build conda.recipe --output)
 echo "found conda package file $CONDA_PACKAGE_FILE"
 
 conda install anaconda-client -qy
-anaconda -t $BINSTAR_TOKEN upload -u chrisfroe --force $CONDA_PACKAGE_FILE
+
+tagval=${TRAVIS_TAG:-notag}
+
+if [ "$tagval" == "notag" ]
+then
+    echo "uploading development package"
+    anaconda -t $BINSTAR_TOKEN upload -c chrisfroe -u chrisfroe -l dev --force $CONDA_PACKAGE_FILE
+else
+    echo "uploading tagged package with tag $tagval"
+    anaconda -t $BINSTAR_TOKEN upload -u chrisfroe $CONDA_PACKAGE_FILE
+fi
+

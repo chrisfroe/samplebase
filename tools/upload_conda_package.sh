@@ -3,12 +3,13 @@
 set -e -u
 
 function set_this_up {
+    tagval1=${TRAVIS_TAG:-notag}
     if [ "$TRAVIS_PULL_REQUEST" != "false" ]
     then
         echo "This was a pull request, thus dont upload package. Exit."
         exit 0
     fi
-    if [ "$TRAVIS_BRANCH" != "master" ]
+    if [ "$TRAVIS_BRANCH" != "master" ] && [ "$tagval1" == "notag" ]
     then
         echo "This commit was made against the $TRAVIS_BRANCH branch and not the master branch. Exit."
         exit 0

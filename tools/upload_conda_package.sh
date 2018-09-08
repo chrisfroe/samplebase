@@ -30,12 +30,14 @@ conda install anaconda-client -qy
 
 tagval=${TRAVIS_TAG:-notag}
 
+echo "tagval is $tagval"
+
 if [ "$tagval" == "notag" ]
 then
     echo "uploading development package"
-    anaconda -t $BINSTAR_TOKEN upload -c chrisfroe -u chrisfroe -l dev --force $CONDA_PACKAGE_FILE
+    anaconda -t $BINSTAR_TOKEN upload -l dev --force $CONDA_PACKAGE_FILE
 else
     echo "uploading tagged package with tag $tagval"
-    anaconda -t $BINSTAR_TOKEN upload -u chrisfroe $CONDA_PACKAGE_FILE
+    anaconda -t $BINSTAR_TOKEN upload $CONDA_PACKAGE_FILE
 fi
 

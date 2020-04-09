@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+conda activate
 which python
 conda config --set always_yes true
 conda update --all

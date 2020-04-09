@@ -53,7 +53,7 @@ echo "branch is ${branch}"
 validate_this_should_run
 
 conda_package_file=$(conda build conda.recipe --output | grep '.tar.bz2' | tail -1)
-echo "Found conda package file ${conda_package_file}"
+echo "Found conda package file ${conda_package_file} "
 
 conda install anaconda-client -qy
 

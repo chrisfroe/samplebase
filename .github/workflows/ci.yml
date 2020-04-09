@@ -32,5 +32,6 @@ jobs:
         if: github.repository == 'chrisfroe/samplebase' && github.event_name == 'push'
         env:
           BINSTAR_TOKEN: ${{ secrets.BINSTAR_TOKEN }}
+        shell: bash -l {0}
         run: |
           tools/upload_conda_package.sh

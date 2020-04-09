@@ -57,7 +57,7 @@ conda list
 conda install -q conda-build=3.16.2
 conda list
 
-conda_package_file=$(conda build tools/conda-recipe --output | grep '.tar.bz2' | tail -1)
+conda_package_file=$(conda build conda.recipe --output | grep '.tar.bz2' | tail -1)
 echo "Found conda package file ${conda_package_file}"
 
 conda install anaconda-client -qy

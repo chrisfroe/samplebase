@@ -52,6 +52,11 @@ echo "branch is ${branch}"
 
 validate_this_should_run
 
+conda env list
+conda list
+conda install -q conda-build=3.16.2
+conda list
+
 conda_package_file=$(conda build tools/conda-recipe --output | grep '.tar.bz2' | tail -1)
 echo "Found conda package file ${conda_package_file}"
 

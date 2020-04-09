@@ -6,3 +6,4 @@ conda install -q conda-build=3.16.2
 conda clean --all -y
 conda-build --version
 conda install conda-verify
+conda env list

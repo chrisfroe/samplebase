@@ -53,13 +53,13 @@ echo "branch is ${branch}"
 validate_this_should_run
 
 conda_package_file=$(conda build conda.recipe --output | grep '.tar.bz2' | tail -1)
-echo "Found conda package file ${conda_package_file} "
+echo "Found conda package file ${conda_package_file}"
 
 conda install anaconda-client -qy
 
 if [ "${tag}" == "notag" ]; then
   echo "Uploading package ${conda_package_file} to dev channel"
-  anaconda -t "${BINSTAR_TOKEN}" upload -l dev --force "${conda_package_file}"
+  anaconda -t "${BINSTAR_TOKEN}" upload -l dev --force "${conda_package_file}"  > /dev/null 2>&1
 else
   echo "Uploading tagged package ${conda_package_file} with tag ${tag} to regular channel"
   anaconda -t "${BINSTAR_TOKEN}" upload "${conda_package_file}" > /dev/null 2>&1
